@@ -1,0 +1,35 @@
+{
+  "date": "2026-06-02",
+  "items": [
+    {
+      "title": "Fone Bluetooth TWS Pro",
+      "price": "R$ 99,90",
+      "oldPrice": "R$ 199,90",
+      "code": "FNC9A8-B78A",
+      "link": "https://meli.la/2ny8pJz",
+      "productUrl": "https://www.mercadolivre.com.br/fone-bluetooth-tws-pro/p/MLB123456789",
+      "image": null,
+      "message": null
+    },
+    {
+      "title": "Smartwatch D20 Monitor Cardíaco",
+      "price": "R$ 49,90",
+      "oldPrice": null,
+      "code": "FNC9A8-GZLU",
+      "link": "https://meli.la/1WL5XwZ",
+      "productUrl": "https://www.mercadolivre.com.br/smartwatch-d20/p/MLB987654321",
+      "image": null,
+      "message": null
+    },
+    {
+      "title": "",
+      "price": "",
+      "oldPrice": null,
+      "code": "",
+      "link": "https://meli.la/EXEMPLO3",
+      "productUrl": null,
+      "image": "https://http2.mlstatic.com/D_NQ_NP_exemplo.jpg",
+      "message": "🔥 Mensagem 100% custom. Quando 'message' preenchido, worker manda exatamente isso. 'image' explicito tem prioridade sobre productUrl."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+node_modules
+.env
+.state.json
+# sessao do whatsapp-web.js (NUNCA versiona — e o login do WhatsApp)
+.wwebjs_auth
+.wwebjs_cache
+# sessao do Portal do Afiliado ML (login pessoal) + dumps de inspecao
+.ml_auth
+# perfil do navegador da Amazon (cache anti-bot, sem login)
+.amazon_session
+ml-inspect.json
+ml-inspect.html
+qr*.png
+# arquivos diarios reais (links pessoais) — nao versiona
+data/*.json
+data/*.txt
+data/*.xlsx
+data/.state.json
+data/auto-queue.json
+ml-links.json
+ml-generate.json
+# mantem exemplos e prompt
+!data/*.example.json
+!data/*.example.txt
+!data/*.example.xlsx

@@ -1,0 +1,48 @@
+# Evolution API (WhatsApp) + Postgres — roda no teu PC, 24h.
+# Sobe com:  docker compose up -d
+# Postgres aqui = storage INTERNO da Evolution (auth/sessao WhatsApp). Nao e DB de metricas.
+services:
+  evolution-api:
+    # CONFIRME a tag mais recente no Docker Hub: https://hub.docker.com/r/atendai/evolution-api/tags
+    image: atendai/evolution-api:v2.2.3
+    restart: always
+    ports:
+      - "8088:8080"
+    environment:
+      # chave que o worker usa pra autenticar nas chamadas da Evolution
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      # versao do WhatsApp Web (a embutida no Baileys fica velha e trava no QR).
+      # Atualize quando o QR parar de gerar: https://github.com/wppconnect-team/wa-version
+      CONFIG_SESSION_PHONE_VERSION: "2.3000.1040664657"
+      # storage interno (persiste a sessao WhatsApp entre reinicios)
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@postgres:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: evolution
+      # cache local (sem Redis pra manter simples)
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      # nao gravar todas as mensagens recebidas (so envio importa)
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+    depends_on:
+      - postgres
+    volumes:
+      - evolution_instances:/evolution/instances
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  evolution_instances:
+  postgres_data:
