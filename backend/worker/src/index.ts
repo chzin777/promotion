@@ -54,14 +54,28 @@ async function tick(client: WAClient): Promise<void> {
 async function main(): Promise<void> {
   console.log('=== Worker promotion ===')
   console.log(`Grupo: ${config.groupId}`)
-  console.log(`Intervalo: ${config.intervalMin}min | horario ativo: ${config.activeStart}-${config.activeEnd}h`)
+  const ritmo = config.intervalPoolMin.length ? `${config.intervalPoolMin.join('/')}min (sorteado)` : `${config.intervalMin}min`
+  console.log(`Intervalo: ${ritmo} | horario ativo: ${config.activeStart}-${config.activeEnd}h`)
   console.log('Subindo WhatsApp (whatsapp-web.js)...')
 
   const client = await startClient()
   await checkConnection(client)
 
   await tick(client)
-  setInterval(() => { void tick(client) }, config.intervalMin * 60_000)
+  scheduleNext(client)
+}
+
+let lastMin = 0
+/** Sorteia o proximo intervalo do pool (evita repetir o ultimo) e agenda o tick. */
+function scheduleNext(client: WAClient): void {
+  const pool = config.intervalPoolMin.length ? config.intervalPoolMin : [config.intervalMin]
+  const choices = pool.length > 1 ? pool.filter((m) => m !== lastMin) : pool
+  const min = choices[Math.floor(Math.random() * choices.length)]
+  lastMin = min
+  console.log(`[${stamp()}] proximo envio em ${min} min.`)
+  setTimeout(() => {
+    void tick(client).finally(() => scheduleNext(client))
+  }, min * 60_000)
 }
 
 // fecha o chrome do afiliado de forma limpa no shutdown -> cookies vao pro disco

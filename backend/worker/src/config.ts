@@ -11,6 +11,12 @@ export const config = {
   // opcional no startup (o comando `groups` roda sem ele). Validado antes de enviar.
   groupId: process.env.WHATSAPP_GROUP_ID?.trim() ?? '',
   intervalMin: Number(process.env.SEND_INTERVAL_MINUTES ?? 30),
+  // pool de intervalos (min) sorteado a cada envio pra variar o ritmo.
+  // Ex: "11,7,15". Vazio = usa intervalMin fixo.
+  intervalPoolMin: (process.env.SEND_INTERVAL_MINUTES_POOL?.trim() || '11,7,15')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   activeStart: Number(process.env.ACTIVE_HOURS_START ?? 0),
   activeEnd: Number(process.env.ACTIVE_HOURS_END ?? 24),
   // pasta com produtos.xlsx / arquivos diarios
