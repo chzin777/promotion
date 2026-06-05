@@ -17,6 +17,34 @@ export type Item = {
   message?: string | null
 }
 
+// gift cards / recargas / vale-presente: preco = valor de face (sem promo).
+const GIFT_RE = /\b(gift\s*-?\s*card|cart[aã]o\s*(de\s*)?presente|vale[\s-]?presente|e-?shop|playstation\s*store|psn|nintendo\s*(eshop|switch\s*online)|google\s*play|xbox\s*(live|game\s*pass)|steam|recarga|cr[eé]ditos?)\b/i
+
+/** Extrai o 1o valor em R$ de um texto. 0 se nao achar. Aceita formato BR. */
+function brNum(s: string): number {
+  const m = s.match(/R\$\s*([\d.,]+)/i) ?? s.match(/([\d.,]+)/)
+  if (!m) return 0
+  let n = m[1]
+  if (/,\d{1,2}$/.test(n)) n = n.replace(/\./g, '').replace(',', '.') // BR: 1.299,90
+  else n = n.replace(/,/g, '')
+  const v = Number(n)
+  return Number.isFinite(v) ? v : 0
+}
+
+/**
+ * Gift card / recarga SEM promo real? So vale postar se tiver desconto de fato.
+ * Compara o valor de face no titulo (ex "Gift Card R$ 50") com o preco cobrado.
+ * preco >= face (ou sem desconto >=3%) = preco base, nao e promocao -> dropa.
+ */
+export function isBasePriceGiftCard(it: Item): boolean {
+  const title = it.title ?? ''
+  if (!GIFT_RE.test(title)) return false // nao e gift card -> mantem
+  const face = brNum(title)
+  const price = brNum(it.price ?? '')
+  if (face && price && price < face * 0.97) return false // desconto real -> mantem
+  return true // sem desconto detectavel -> junk
+}
+
 /** Data local no formato AAAA-MM-DD. */
 export function todayStr(d = new Date()): string {
   const y = d.getFullYear()
@@ -53,8 +81,8 @@ export function loadItems(date = todayStr()): Item[] {
     }
   }
 
-  // manuais primeiro, depois a fila automatica
-  return [...manual, ...auto].filter((it) => it.link && it.link.trim())
+  // manuais primeiro, depois a fila automatica. Dropa gift card sem promo real.
+  return [...manual, ...auto].filter((it) => it.link && it.link.trim() && !isBasePriceGiftCard(it))
 }
 
 /**
@@ -168,24 +196,31 @@ type MsgVariant = { head: string; hype: string[]; cta: string }
 const VARIANTS: MsgVariant[] = [
   { head: '🔥 OFERTA IMPERDÍVEL 🔥', hype: ['✅ Frete e estoque você confere no link', '⚡ Promoção pode acabar a qualquer momento!'], cta: '👉 Garanta o seu:' },
   { head: '🚨 BAIXOU O PREÇO 🚨', hype: ['📉 Aproveite enquanto está nesse valor', '⏳ Corre que é por tempo limitado!'], cta: '🛒 Pega o seu agora:' },
-  { head: '💥 ACHADINHO DO DIA 💥', hype: ['🤑 Difícil achar mais barato', '🔥 Últimas unidades nesse preço!'], cta: '👉 Não perde:' },
-  { head: '⭐ OFERTA RELÂMPAGO ⭐', hype: ['⚡ Some rapidinho do estoque', '✅ Compra segura pelo Mercado Livre'], cta: '🛒 Garante já:' },
+  { head: '💥 ACHADINHO 💥', hype: ['🤑 Difícil achar mais barato', '🔥 Últimas unidades nesse preço!'], cta: '👉 Não perde:' },
+  { head: '⭐ OFERTA RELÂMPAGO ⭐', hype: ['⚡ Some rapidinho do estoque', '✅ Compra 100% segura'], cta: '🛒 Garante já:' },
   { head: '🎯 PREÇO QUE VALE A PENA 🎯', hype: ['💸 Economia de verdade nessa', '⏰ Promo pode encerrar a qualquer hora'], cta: '👉 Aproveita aqui:' },
-  { head: '🛍️ SELEÇÃO DO DIA 🛍️', hype: ['🔝 Bem avaliado e com bom preço', '⚡ Estoque voa, não vacila!'], cta: '👉 Confere no link:' },
+  { head: '🛍️ SEPAREI PRA VOCÊS 🛍️', hype: ['🔝 Bem avaliado e com bom preço', '⚡ Estoque voa, não vacila!'], cta: '👉 Confere no link:' },
   { head: '💣 OFERTA BOMBA 💣', hype: ['🤯 Esse preço tá surreal', '⏳ Aproveite antes que volte ao normal'], cta: '🛒 Quero esse:' },
-  { head: '🔥 PROMOÇÃO QUENTE 🔥', hype: ['✅ Direto do Mercado Livre, sem enrolação', '⚡ Corre que acaba!'], cta: '👉 Garanta agora:' },
+  { head: '🔥 PROMOÇÃO QUENTE 🔥', hype: ['✅ Direto da loja oficial, sem enrolação', '⚡ Corre que acaba!'], cta: '👉 Garanta agora:' },
   { head: '🏷️ DESCONTÃO 🏷️', hype: ['💰 Pagou menos, levou igual', '🔥 Oferta por tempo limitado'], cta: '🛒 Aproveita:' },
   { head: '🤑 OLHA O PREÇO 🤑', hype: ['👀 Difícil deixar passar', '⏰ Pode subir a qualquer momento!'], cta: '👉 Pega o link:' },
-  { head: '🛒 OFERTA DO DIA 🛒', hype: ['💯 Bom preço, vendedor confiável', '⚡ Aproveite antes que acabe'], cta: '👉 Compra aqui:' },
-  { head: '⚡ RELÂMPAGO ML ⚡', hype: ['🔥 Caiu o preço agora há pouco', '⏳ Não sei até quando fica assim'], cta: '🛒 Garante o seu:' },
+  { head: '🛒 OFERTAÇO 🛒', hype: ['💯 Bom preço, vendedor confiável', '⚡ Aproveite antes que acabe'], cta: '👉 Compra aqui:' },
+  { head: '⚡ RELÂMPAGO ⚡', hype: ['🔥 Caiu o preço agora há pouco', '⏳ Não sei até quando fica assim'], cta: '🛒 Garante o seu:' },
   { head: '🎁 OPORTUNIDADE 🎁', hype: ['💰 Vale muito a pena nesse valor', '🚀 Sai voando do estoque!'], cta: '👉 Aproveita:' },
   { head: '🔝 TOP DO MOMENTO 🔝', hype: ['⭐ Um dos mais procurados', '⏰ Promo por tempo limitado'], cta: '🛒 Pega já:' },
   { head: '💸 ECONOMIA NA CERTA 💸', hype: ['📉 Preço baixou de verdade', '⚡ Corre antes que normalize'], cta: '👉 Confere:' },
-  { head: '🚀 IMPERDÍVEL HOJE 🚀', hype: ['🤩 Esse achado tá top', '🔥 Últimas peças nesse preço'], cta: '👉 Garante:' },
+  { head: '🚀 CORRE PRA VER 🚀', hype: ['🤩 Esse achado tá top', '🔥 Últimas peças nesse preço'], cta: '👉 Garante:' },
   { head: '🏆 ACHADO PREMIUM 🏆', hype: ['✅ Qualidade com preço justo', '⏳ Oferta pode sumir a qualquer hora'], cta: '🛒 Quero o meu:' },
   { head: '🔥 QUEIMA DE ESTOQUE 🔥', hype: ['💥 Preço de liquidação', '⚡ Enquanto durar o estoque!'], cta: '👉 Aproveita agora:' },
   { head: '👑 OFERTA TOP 👑', hype: ['💎 Vale cada centavo', '⏰ Some rápido, não vacila'], cta: '🛒 Pega o link:' },
 ]
+
+/** Nome da loja a partir do link (pra nao citar loja errada). */
+function storeName(link: string): string {
+  if (/amazon\./i.test(link)) return 'Amazon'
+  if (/meli\.|mercadolivre/i.test(link)) return 'Mercado Livre'
+  return ''
+}
 
 /** Monta a mensagem do WhatsApp a partir do item (descricao hype automatica). */
 export function formatMessage(it: Item): string {
@@ -198,14 +233,21 @@ export function formatMessage(it: Item): string {
     lines.push('')
     lines.push(`📦 ${it.title.trim()}`)
   } else {
-    lines.push(`${v.head} — Mercado Livre`)
+    const loja = storeName(it.link)
+    lines.push(loja ? `${v.head} — ${loja}` : v.head)
   }
 
-  const priceLine = [
-    it.price?.trim(),
-    it.oldPrice?.trim() ? `~${it.oldPrice.trim()}~` : '',
-  ].filter(Boolean).join('  ')
-  if (priceLine) lines.push(`💰 ${priceLine}`)
+  // preco: mostra De/Por (riscado) so quando tem desconto real; senao so o atual
+  const cur = it.price?.trim() ?? ''
+  const old = it.oldPrice?.trim() ?? ''
+  const curN = brNum(cur)
+  const oldN = brNum(old)
+  if (cur && old && curN > 0 && oldN > curN) {
+    lines.push(`❌ De: ~${old}~`)
+    lines.push(`✅ Por: ${cur}`)
+  } else if (cur) {
+    lines.push(`💰 ${cur}`)
+  }
 
   lines.push('')
   for (const h of v.hype) lines.push(h)

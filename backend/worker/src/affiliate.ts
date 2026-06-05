@@ -29,32 +29,40 @@ const DETAILS_JS = `(() => {
     || (q('meta[property="og:title"]') && q('meta[property="og:title"]').content) || '';
   const img = (q('meta[property="og:image"]') && q('meta[property="og:image"]').content)
     || (q('figure.ui-pdp-gallery__figure img') && q('figure.ui-pdp-gallery__figure img').src) || '';
-  // preco atual: 1o andes-money-amount da area de preco
+  // le um elemento andes-money-amount -> "199,90"
+  const money = (el) => {
+    if (!el) return '';
+    const f = el.querySelector('.andes-money-amount__fraction');
+    const c = el.querySelector('.andes-money-amount__cents');
+    if (!f) return '';
+    return f.textContent.trim() + (c ? ',' + c.textContent.trim() : '');
+  };
+  // preco atual: 1o money da area de preco
   const scope = q('.ui-pdp-price__second-line') || document;
-  const frac = scope.querySelector('.andes-money-amount__fraction');
-  const cents = scope.querySelector('.andes-money-amount__cents');
-  let price = '';
-  if (frac) price = frac.textContent.trim() + (cents ? ',' + cents.textContent.trim() : '');
-  return { title, img, price };
+  const price = money(scope);
+  // preco cheio (riscado), se houver promo
+  const oldPrice = money(q('.ui-pdp-price__original-value'));
+  return { title, img, price, oldPrice };
 })()`
 
-export type Promo = { productUrl: string; link: string | null; title: string; image: string; price: string }
+export type Promo = { productUrl: string; link: string | null; title: string; image: string; price: string; oldPrice: string }
 
-/** Navega a pagina do produto e le titulo/imagem/preco renderizados. */
-async function grabDetails(page: Page, productUrl: string): Promise<{ title: string; image: string; price: string }> {
+/** Navega a pagina do produto e le titulo/imagem/preco (atual + cheio) renderizados. */
+async function grabDetails(page: Page, productUrl: string): Promise<{ title: string; image: string; price: string; oldPrice: string }> {
   try {
     await page.goto(productUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await page.waitForSelector('h1.ui-pdp-title, .andes-money-amount__fraction', { timeout: 12_000 }).catch(() => {})
     await delay(500)
-    const d = (await page.evaluate(DETAILS_JS)) as { title: string; img: string; price: string }
+    const d = (await page.evaluate(DETAILS_JS)) as { title: string; img: string; price: string; oldPrice: string }
     return {
       title: (d.title || '').trim(),
       image: (d.img || '').trim(),
       price: d.price ? `R$ ${d.price}` : '',
+      oldPrice: d.oldPrice ? `R$ ${d.oldPrice}` : '',
     }
   } catch (e) {
     console.warn('[details] falha em', productUrl, '-', (e as Error).message)
-    return { title: '', image: '', price: '' }
+    return { title: '', image: '', price: '', oldPrice: '' }
   }
 }
 

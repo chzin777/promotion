@@ -55,7 +55,15 @@ if not exist ".ml_auth\" (
   echo [4/5] Mercado Livre ja logado.
 )
 
-REM 6. roda a automacao
+REM 6. Amazon nao tem login - so depende da AMAZON_TAG no .env. Avisa se vazia.
+findstr /r /c:"^AMAZON_TAG=$" ".env" >nul
+if not errorlevel 1 (
+  echo [i] Amazon DESATIVADA: AMAZON_TAG vazio no .env - vai postar so Mercado Livre.
+  echo     Para ativar: cole sua tag ^(xxxxx-20^) em AMAZON_TAG no .env e rode de novo.
+  echo.
+)
+
+REM 7. roda a automacao
 echo [5/5] Tudo pronto. Iniciando automacao. ^(Ctrl+C encerra e salva a sessao^)
 echo.
 call npm start

@@ -4,7 +4,7 @@ import { buildPromos, type Promo } from './affiliate.js'
 import { discoverAmazonUrls, buildAmazonPromos, asin } from './amazon.js'
 import { readState, writeState } from './state.js'
 import { appendQueue } from './queue.js'
-import { todayStr, type Item } from './products.js'
+import { todayStr, isBasePriceGiftCard, type Item } from './products.js'
 
 /** Intercala dois arrays (a0, b0, a1, b1, ...) pra alternar as fontes na fila. */
 function interleave<T>(a: T[], b: T[]): T[] {
@@ -26,7 +26,9 @@ function promosToItems(promos: Promo[]): Item[] {
       title: p.title || undefined,
       image: p.image || undefined,
       price: p.price || undefined,
+      oldPrice: p.oldPrice || undefined,
     }))
+    .filter((it) => !isBasePriceGiftCard(it)) // nao enfileira gift card sem promo
 }
 
 let feeding = false

@@ -4,8 +4,14 @@ import puppeteer, { type Browser, type Page } from 'puppeteer'
 import { config } from './config.js'
 import type { Promo } from './affiliate.js'
 
-const BESTSELLERS = 'https://www.amazon.com.br/bestsellers'
-const DEALS = 'https://www.amazon.com.br/deals'
+// fontes gerais
+const GENERAL = ['https://www.amazon.com.br/bestsellers', 'https://www.amazon.com.br/deals']
+// fontes de categoria (vies pra roupas/tenis/utilidades) — slugs validados
+const CATEGORY = [
+  'https://www.amazon.com.br/bestsellers/fashion', // roupas/tenis
+  'https://www.amazon.com.br/bestsellers/kitchen', // utilidades cozinha
+  'https://www.amazon.com.br/bestsellers/home', // utilidades casa
+]
 
 let browser: Browser | null = null
 
@@ -76,34 +82,46 @@ async function grabFrom(page: Page, url: string, scrolls = 4): Promise<string[]>
   }
 }
 
-/** Descobre URLs de produto (mais vendidos + ofertas), dedupa por ASIN. */
+/** Junta varias paginas-fonte numa lista unica (na ordem dada). */
+async function grabSources(page: Page, urls: string[], tag: string): Promise<string[]> {
+  const all: string[] = []
+  for (const u of urls) {
+    const found = await grabFrom(page, u, 5)
+    console.log(`[amazon] ${tag} ${u.split('/').pop()}: ${found.length} produtos`)
+    all.push(...found)
+  }
+  return all
+}
+
+/**
+ * Descobre URLs de produto, dedupa por ASIN. Puxa ~2:1 pra categorias
+ * (roupas/tenis/utilidades) sobre as fontes gerais, sem ser exclusivo.
+ */
 export async function discoverAmazonUrls(limit: number, exclude: Set<string> = new Set()): Promise<string[]> {
   if (!config.amazonTag) return [] // sem tag, nao adianta
   const b = await getAmazonBrowser()
   const page = await b.newPage()
-
-  const vendidos = await grabFrom(page, BESTSELLERS, 5)
-  console.log(`[amazon] mais-vendidos: ${vendidos.length} produtos`)
-  const ofertas = await grabFrom(page, DEALS, 5)
-  console.log(`[amazon] ofertas: ${ofertas.length} produtos`)
+  const category = await grabSources(page, CATEGORY, 'categoria')
+  const general = await grabSources(page, GENERAL, 'geral')
   await page.close().catch(() => {})
 
-  // intercala as duas fontes
-  const merged: string[] = []
-  const max = Math.max(vendidos.length, ofertas.length)
-  for (let i = 0; i < max; i++) {
-    if (vendidos[i]) merged.push(vendidos[i])
-    if (ofertas[i]) merged.push(ofertas[i])
-  }
-
+  // tece 2 de categoria pra 1 geral (vies parcial)
   const out: string[] = []
   const seen = new Set<string>()
-  for (const u of merged) {
+  let ci = 0
+  let gi = 0
+  const push = (u?: string): boolean => {
+    if (!u) return false
     const id = asin(u)
-    if (!id || exclude.has(id) || seen.has(id)) continue
+    if (!id || exclude.has(id) || seen.has(id)) return false
     seen.add(id)
     out.push(u)
-    if (out.length >= limit) break
+    return out.length >= limit
+  }
+  while (out.length < limit && (ci < category.length || gi < general.length)) {
+    if (push(category[ci++])) break
+    if (push(category[ci++])) break
+    if (push(general[gi++])) break
   }
   return out
 }
@@ -119,23 +137,33 @@ const DETAILS_JS = `(() => {
     || q('#corePriceDisplay_desktop_feature_div .a-offscreen')
     || q('.a-price .a-offscreen');
   const price = priceEl ? priceEl.textContent.trim() : '';
-  return { title, img, price };
+  // preco cheio (lista, riscado), se houver promo
+  const oldEl = q('.basisPrice .a-offscreen')
+    || q('span.a-price.a-text-price[data-a-strike="true"] .a-offscreen')
+    || q('.a-text-price .a-offscreen');
+  const oldPrice = oldEl ? oldEl.textContent.trim() : '';
+  return { title, img, price, oldPrice };
 })()`
 
-async function grabDetails(page: Page, url: string): Promise<{ title: string; image: string; price: string }> {
+function normPrice(s: string): string {
+  return (s || '').trim().replace(/^R\$\s*/, 'R$ ') // padroniza "R$ 199,90"
+}
+
+async function grabDetails(page: Page, url: string): Promise<{ title: string; image: string; price: string; oldPrice: string }> {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await page.waitForSelector('#productTitle, .a-price .a-offscreen', { timeout: 12_000 }).catch(() => {})
     await new Promise((r) => setTimeout(r, 400))
-    const d = (await page.evaluate(DETAILS_JS)) as { title: string; img: string; price: string }
+    const d = (await page.evaluate(DETAILS_JS)) as { title: string; img: string; price: string; oldPrice: string }
     return {
       title: (d.title || '').trim(),
       image: (d.img || '').trim(),
-      price: (d.price || '').trim().replace(/^R\$\s*/, 'R$ '), // padroniza "R$ 199,90"
+      price: normPrice(d.price),
+      oldPrice: normPrice(d.oldPrice),
     }
   } catch (e) {
     console.warn('[amazon] detalhe falhou em', url, '-', (e as Error).message)
-    return { title: '', image: '', price: '' }
+    return { title: '', image: '', price: '', oldPrice: '' }
   }
 }
 
