@@ -3,7 +3,7 @@ import { loadItems, enrichItem, type Item } from './products.js'
 import { readState, writeState, linkKey } from './state.js'
 import { sendItem, checkConnection } from './whatsapp.js'
 import { startClient, type WAClient } from './wa.js'
-import { maybeFeed } from './feeder.js'
+import { runFeed } from './feeder.js'
 import { closeMlBrowser } from './ml.js'
 import { closeAmazonBrowser } from './amazon.js'
 
@@ -17,12 +17,24 @@ function stamp(): string {
 }
 
 async function tick(client: WAClient): Promise<void> {
-  // descoberta automatica 2x/dia (nao-bloqueante: roda em paralelo aos envios)
-  void maybeFeed().catch((e) => console.error('[feed] erro:', (e as Error).message))
-
-  const items: Item[] = loadItems()
+  let items: Item[] = loadItems()
+  
+  // se fila vazia ou com poucos itens (<=3): tenta coletar mais se estiver no horario ativo
+  if (items.length <= 3 && withinActiveHours()) {
+    console.log(`[${stamp()}] fila com ${items.length} itens. Coletando mais produtos...`)
+    try {
+      const added = await runFeed(config.feedCount)
+      if (added > 0) {
+        console.log(`[${stamp()}] coletados ${added} novos. Recarregando...`)
+        items = loadItems()
+      }
+    } catch (e) {
+      console.error(`[${stamp()}] coleta falhou:`, (e as Error).message)
+    }
+  }
+  
   if (items.length === 0) {
-    console.log(`[${stamp()}] sem produtos. Crie data/produtos.xlsx (ou o .txt/.json do dia).`)
+    console.log(`[${stamp()}] fila vazia. Aguardando proxima coleta (entre ${config.activeStart}h-${config.activeEnd}h).`)
     return
   }
 
@@ -56,6 +68,7 @@ async function main(): Promise<void> {
   console.log(`Grupo: ${config.groupId}`)
   const ritmo = config.intervalPoolMin.length ? `${config.intervalPoolMin.join('/')}min (sorteado)` : `${config.intervalMin}min`
   console.log(`Intervalo: ${ritmo} | horario ativo: ${config.activeStart}-${config.activeEnd}h`)
+  console.log(`Coleta reativa quando fila <= 3 itens`)
   console.log('Subindo WhatsApp (whatsapp-web.js)...')
 
   const client = await startClient()
