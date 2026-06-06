@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { config } from './config.js'
 import { listGroups, sendText, checkConnection } from './whatsapp.js'
 import { loadItems, enrichItem, formatMessage } from './products.js'
@@ -29,6 +31,24 @@ async function main(): Promise<void> {
     process.exit(0)
   }
 
+  if (cmd === 'logout') {
+    // deleta a sessao do disco para deslogar
+    try {
+      const sessionPath = config.sessionDir
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true })
+        console.log(`✅ Sessao deletada: ${sessionPath}`)
+        console.log('Deslogado com sucesso. Na proxima execucao, escaneie um novo QR.')
+      } else {
+        console.log('Sessao nao encontrada. Ja esta deslogado.')
+      }
+    } catch (e) {
+      console.error('Erro ao deslogar:', (e as Error).message)
+      process.exit(1)
+    }
+    process.exit(0)
+  }
+
   const client = await startClient()
   const finish = async () => { await client.destroy().catch(() => {}); process.exit(0) }
   switch (cmd) {
@@ -54,7 +74,7 @@ async function main(): Promise<void> {
       break
     }
     default:
-      console.log('Comandos: link | status | groups | preview | test')
+      console.log('Comandos: link | logout | status | groups | preview | test')
   }
   await finish()
 }
