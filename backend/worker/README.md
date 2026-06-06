@@ -130,8 +130,50 @@ Pra postar Amazon, a pessoa põe a **tag de afiliado dela** em `AMAZON_TAG` no
 | Comando | O quê |
 |---|---|
 | `npm start` | roda a automação. |
+| `npm run setup` | instala o Chrome do Puppeteer (executado automaticamente). |
 | `npm run wa-login` | loga no WhatsApp (QR) e encerra. |
+| `npm run logout` | **desliga do WhatsApp** (deleta a sessão do disco). |
 | `npm run ml-login` | loga no Mercado Livre (Chrome visível) e encerra. |
 | `npm run groups` | lista os grupos pra achar o `...@g.us`. |
 | `npm run feed` | força uma descoberta de produtos agora (teste). |
 | `npm run status` | mostra o estado da conexão. |
+
+---
+
+## Troubleshooting
+
+### ❌ "Could not find Chrome"
+
+Se ver erro do Puppeteer sobre Chrome não encontrado:
+
+```
+Could not find Chrome (ver. 146.0.7680.31)...
+```
+
+**Solução:** instale o Chrome:
+```powershell
+npm run setup
+```
+
+Isso é executado automaticamente ao rodar `npm install`, mas se você está numa
+**máquina compartilhada ou com cache de Puppeteer manuseado**, rode o comando
+acima. Depois tente de novo.
+
+### ❌ "Deslogar do WhatsApp"
+
+Para **usar outra conta** numa máquina diferente, desliga de onde está:
+
+```powershell
+npm run logout
+```
+
+Isso **deleta a sessão salva** (`.wwebjs_auth`). Na próxima execução, vai pedir
+um novo QR pra você escanear com a conta que quer.
+
+### ⚠️ Ctrl+C vs. Force Kill
+
+- ✅ **Ctrl+C**: encerrá gracefully, salva sessões, fecha Chrome de forma limpa.
+- ❌ **Ctrl+Break** ou Task Manager: pode deixar Chrome órfão. Se isso acontecer,
+  o bot tenta limpar sozinho no próximo start, mas é mais lento.
+
+Use sempre **Ctrl+C**.
