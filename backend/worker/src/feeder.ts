@@ -8,6 +8,22 @@ import { appendQueue } from './queue.js'
 import { todayStr, isBasePriceGiftCard, type Item } from './products.js'
 import { readSettings, getAmazonTag } from './settings.js'
 
+// produtos super-representados nas fontes (bestsellers de moda = mar de meia).
+// Limita quantos entram por coleta pra nao floodar a fila com a mesma coisa.
+const SATURATED = /\bmeia(s)?\b|soquete/i
+
+/** Mantem no maximo `max` itens "saturados" (ex: meias) por coleta. */
+function capSaturated(items: Item[], max = 1): Item[] {
+  let n = 0
+  return items.filter((it) => {
+    if (SATURATED.test(it.title ?? '')) {
+      if (n >= max) return false
+      n += 1
+    }
+    return true
+  })
+}
+
 /** Intercala dois arrays (a0, b0, a1, b1, ...) pra alternar as fontes na fila. */
 function interleave<T>(a: T[], b: T[]): T[] {
   const out: T[] = []
@@ -101,7 +117,7 @@ export async function runFeed(count?: number): Promise<number> {
       return 0
     }
 
-    const added = appendQueue(interleave(interleave(mlItems, amzItems), shopeeItems))
+    const added = appendQueue(capSaturated(interleave(interleave(mlItems, amzItems), shopeeItems)))
 
     const st = readState()
     for (const u of mlUrls) st.seenProducts.push(productId(u))
