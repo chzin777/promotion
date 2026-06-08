@@ -10,6 +10,9 @@ type Status = {
   remainingAmazon: number;
   sentCount: number;
   amazonTagConfigured: boolean;
+  waGroupId: string;
+  waGroupName: string;
+  waConnected: boolean;
 };
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -424,6 +427,42 @@ export default function SettingsPanel() {
           </div>
         </div>
       </section>
+
+      {/* Grupo de destino */}
+      {status ? (
+        <div className="animate-fade-in mb-6 flex items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-4 shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
+            <IconWhatsApp className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Enviando para o grupo
+            </p>
+            {status.waGroupId ? (
+              <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                {status.waGroupName || status.waGroupId}
+                {status.waGroupName ? (
+                  <span className="ml-2 font-mono text-xs font-normal text-zinc-400">{status.waGroupId}</span>
+                ) : null}
+              </p>
+            ) : (
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                Nenhum grupo configurado (WHATSAPP_GROUP_ID vazio no .env)
+              </p>
+            )}
+          </div>
+          <span
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              status.waConnected
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${status.waConnected ? "bg-emerald-500" : "bg-zinc-400"}`} />
+            {status.waConnected ? "Conectado" : "Desconectado"}
+          </span>
+        </div>
+      ) : null}
 
       {/* Stats */}
       {status ? (

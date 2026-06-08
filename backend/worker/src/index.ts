@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { config } from './config.js'
 import { loadItems, enrichItem } from './products.js'
 import { readState, writeState, recordSent, wasSent } from './state.js'
@@ -149,9 +151,37 @@ async function main(): Promise<void> {
 
   const client = await startClient()
   await checkConnection(client)
+  await writeWaStatus(client)
 
   await tick(client)
   scheduleNext(client)
+}
+
+/** Grava nome do grupo + conexao pra o painel mostrar pra onde manda. */
+async function writeWaStatus(client: WAClient): Promise<void> {
+  let groupName = ''
+  try {
+    if (config.groupId) {
+      const chat = await client.getChatById(config.groupId)
+      groupName = chat?.name ?? ''
+      console.log(`[wa] enviando para o grupo: ${groupName || '(sem nome)'} (${config.groupId})`)
+    }
+  } catch (e) {
+    console.warn('[wa] nao resolveu o nome do grupo:', (e as Error).message)
+  }
+  try {
+    fs.mkdirSync(config.dataDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(config.dataDir, '.wa-status.json'),
+      JSON.stringify(
+        { groupId: config.groupId, groupName, connected: true, updatedAt: new Date().toISOString() },
+        null,
+        2,
+      ),
+    )
+  } catch {
+    /* best-effort */
+  }
 }
 
 let lastMin = 0

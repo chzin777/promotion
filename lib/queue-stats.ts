@@ -19,10 +19,33 @@ export type QueueStats = {
   remainingAmazon: number;
   sentCount: number;
   amazonTagConfigured: boolean;
+  waGroupId: string;
+  waGroupName: string;
+  waConnected: boolean;
 };
 
 function workerDataDir(): string {
   return path.join(process.cwd(), "backend", "worker", "data");
+}
+
+/** Id do grupo no .env (WHATSAPP_GROUP_ID). */
+function readGroupIdFromEnv(): string {
+  try {
+    const env = fs.readFileSync(path.join(process.cwd(), "backend", "worker", ".env"), "utf8");
+    return env.match(/^WHATSAPP_GROUP_ID=(.*)$/m)?.[1]?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** Status do WhatsApp gravado pelo worker ao conectar (nome do grupo + conexao). */
+function readWaStatus(dataDir: string): { groupName: string; connected: boolean } {
+  try {
+    const s = JSON.parse(fs.readFileSync(path.join(dataDir, ".wa-status.json"), "utf8"));
+    return { groupName: String(s.groupName ?? ""), connected: Boolean(s.connected) };
+  } catch {
+    return { groupName: "", connected: false };
+  }
 }
 
 function todayStr(d = new Date()): string {
@@ -193,6 +216,7 @@ export function readQueueStats(): QueueStats {
   }
 
   const amazonTagConfigured = Boolean(readSettingsFile().amazonTag.trim());
+  const wa = readWaStatus(dataDir);
 
   return {
     remainingTotal: pending.length,
@@ -200,5 +224,8 @@ export function readQueueStats(): QueueStats {
     remainingAmazon,
     sentCount: state.sent.length,
     amazonTagConfigured,
+    waGroupId: readGroupIdFromEnv(),
+    waGroupName: wa.groupName,
+    waConnected: wa.connected,
   };
 }

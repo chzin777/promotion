@@ -41,6 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# runtime do worker (escrita atomica do estado: backup/temp)
+# runtime do worker (escrita atomica do estado: backup/temp + status do WhatsApp)
 backend/worker/data/.state.json.bak
 backend/worker/data/.state.json.tmp
+backend/worker/data/.wa-status.json
