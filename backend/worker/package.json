@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "setup": "PUPPETEER_SKIP_DOWNLOAD=true npm install && npx puppeteer browsers install chrome",
-    "clean": "rm -rf node_modules package-lock.json .cache && PUPPETEER_SKIP_DOWNLOAD=true npm install && npx puppeteer browsers install chrome",
+    "setup": "echo 'Installing browsers...' && npx puppeteer browsers install && cd node_modules/whatsapp-web.js/node_modules/puppeteer && npx puppeteer browsers install",
+    "clean": "rm -rf node_modules package-lock.json && npm install && npm run setup",
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "wa-login": "tsx src/wa-login.ts",

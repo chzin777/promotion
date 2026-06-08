@@ -3,6 +3,8 @@ import path from 'node:path'
 import XLSX from 'xlsx'
 import { config } from './config.js'
 import { scrapeMeta } from './scrape.js'
+import { linkKey, productKey, readState, wasSent } from './state.js'
+import { pruneQueue } from './queue.js'
 
 export type Item = {
   title?: string
@@ -81,8 +83,27 @@ export function loadItems(date = todayStr()): Item[] {
     }
   }
 
-  // manuais primeiro, depois a fila automatica. Dropa gift card sem promo real.
-  return [...manual, ...auto].filter((it) => it.link && it.link.trim() && !isBasePriceGiftCard(it))
+  // manuais primeiro, depois a fila automatica. Dropa gift card, enviados e duplicados.
+  pruneQueue()
+  return dedupePending([...manual, ...auto].filter((it) => it.link && it.link.trim() && !isBasePriceGiftCard(it)))
+}
+
+/** Remove itens ja enviados e duplicatas (mesmo link ou mesmo produto). */
+function dedupePending(items: Item[]): Item[] {
+  const state = readState()
+  const seenLinks = new Set<string>()
+  const seenProducts = new Set<string>()
+  const out: Item[] = []
+  for (const it of items) {
+    if (wasSent(it, state)) continue
+    const lk = linkKey(it.link)
+    const pk = productKey(it.link, it.productUrl)
+    if (seenLinks.has(lk) || seenProducts.has(pk)) continue
+    seenLinks.add(lk)
+    seenProducts.add(pk)
+    out.push(it)
+  }
+  return out
 }
 
 /**

@@ -1,0 +1,17 @@
+{
+  "automationRunning": false,
+  "mlEnabled": true,
+  "amazonEnabled": false,
+  "amazonTag": "",
+  "sendIntervalMinutes": 15,
+  "sendIntervalPool": [11, 7, 15],
+  "useIntervalPool": true,
+  "activeHoursStart": 8,
+  "activeHoursEnd": 22,
+  "feedCount": 20,
+  "amazonFeedCount": 10,
+  "feedAmHour": 8,
+  "feedPmHour": 14,
+  "feedReactiveThreshold": 3,
+  "autoFeedEnabled": true
+}

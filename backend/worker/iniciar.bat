@@ -3,36 +3,48 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 chcp 65001 >nul
 
+for %%I in ("%~dp0..\..") do set "ROOT_DIR=%%~fI"
+
 echo ============================================
 echo   Promotion Bot - setup e automacao
 echo ============================================
 echo.
 
-REM 1. dependencias
+REM 1. dependencias do worker
 if not exist "node_modules\" (
-  echo [1/5] Instalando dependencias... ^(demora na 1a vez^)
+  echo [1/7] Instalando dependencias do worker... ^(demora na 1a vez^)
   call npm install
 ) else (
-  echo [1/5] Dependencias OK.
+  echo [1/7] Dependencias do worker OK.
 )
 
-REM 2. .env
+REM 2. dependencias do painel web (raiz do projeto)
+if not exist "%ROOT_DIR%\node_modules\" (
+  echo [2/7] Instalando dependencias do painel web... ^(demora na 1a vez^)
+  pushd "%ROOT_DIR%"
+  call npm install
+  popd
+) else (
+  echo [2/7] Dependencias do painel web OK.
+)
+
+REM 3. .env
 if not exist ".env" (
   copy ".env.example" ".env" >nul
-  echo [2/5] .env criado a partir do exemplo.
+  echo [3/7] .env criado a partir do exemplo.
 ) else (
-  echo [2/5] .env OK.
+  echo [3/7] .env OK.
 )
 
-REM 3. login WhatsApp (se nao tiver sessao salva)
+REM 4. login WhatsApp (se nao tiver sessao salva)
 if not exist ".wwebjs_auth\session-promotion\" (
-  echo [3/5] WhatsApp sem sessao - abrindo login. Escaneie o QR no terminal...
+  echo [4/7] WhatsApp sem sessao - abrindo login. Escaneie o QR no terminal...
   call npm run wa-login
 ) else (
-  echo [3/5] WhatsApp ja logado.
+  echo [4/7] WhatsApp ja logado.
 )
 
-REM 4. grupo ainda vazio? lista os grupos e para pra voce preencher
+REM 5. grupo ainda vazio? lista os grupos e para pra voce preencher
 findstr /r /c:"^WHATSAPP_GROUP_ID=$" ".env" >nul
 if not errorlevel 1 (
   echo.
@@ -47,25 +59,25 @@ if not errorlevel 1 (
   exit /b 0
 )
 
-REM 5. login Mercado Livre (se nao tiver sessao salva)
+REM 6. login Mercado Livre (se nao tiver sessao salva)
 if not exist ".ml_auth\" (
-  echo [4/5] Mercado Livre sem sessao - abrindo o Chrome. Faca login na conta de afiliado...
+  echo [5/7] Mercado Livre sem sessao - abrindo o Chrome. Faca login na conta de afiliado...
   call npm run ml-login
 ) else (
-  echo [4/5] Mercado Livre ja logado.
+  echo [5/7] Mercado Livre ja logado.
 )
 
-REM 6. Amazon nao tem login - so depende da AMAZON_TAG no .env. Avisa se vazia.
-findstr /r /c:"^AMAZON_TAG=$" ".env" >nul
-if not errorlevel 1 (
-  echo [i] Amazon DESATIVADA: AMAZON_TAG vazio no .env - vai postar so Mercado Livre.
-  echo     Para ativar: cole sua tag ^(xxxxx-20^) em AMAZON_TAG no .env e rode de novo.
-  echo.
-)
-
-REM 7. roda a automacao
-echo [5/5] Tudo pronto. Iniciando automacao. ^(Ctrl+C encerra e salva a sessao^)
+REM 7. Amazon: tag de afiliado configuravel no painel web ^(secao Plataformas^).
+echo [i] Tag Amazon: configure no painel http://localhost:3000 ^(com automacao parada^).
 echo.
-call npm start
+
+REM 8. painel + worker no mesmo terminal
+echo [6/7] Iniciando painel e automacao neste terminal...
+echo       Painel: http://localhost:3000
+echo       Ctrl+C encerra os dois. ^(worker salva a sessao^)
+echo.
+pushd "%ROOT_DIR%"
+call npm run dev:all
+popd
 
 endlocal

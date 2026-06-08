@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import puppeteer, { type Browser, type Page } from 'puppeteer'
 import { config } from './config.js'
+import { getAmazonTag } from './settings.js'
 import type { Promo } from './affiliate.js'
 
 // fontes gerais
@@ -54,8 +55,9 @@ export function asin(url: string): string {
 /** Monta o link de afiliado canonico: /dp/ASIN?tag=suatag. '' se sem ASIN/tag. */
 export function amazonLink(url: string): string {
   const id = asin(url)
-  if (!id || !config.amazonTag) return ''
-  return `https://www.amazon.com.br/dp/${id}?tag=${config.amazonTag}`
+  const tag = getAmazonTag()
+  if (!id || !tag) return ''
+  return `https://www.amazon.com.br/dp/${id}?tag=${tag}`
 }
 
 /** Coleta URLs /dp/ASIN visiveis na pagina. */
@@ -98,7 +100,7 @@ async function grabSources(page: Page, urls: string[], tag: string): Promise<str
  * (roupas/tenis/utilidades) sobre as fontes gerais, sem ser exclusivo.
  */
 export async function discoverAmazonUrls(limit: number, exclude: Set<string> = new Set()): Promise<string[]> {
-  if (!config.amazonTag) return [] // sem tag, nao adianta
+  if (!getAmazonTag()) return []
   const b = await getAmazonBrowser()
   const page = await b.newPage()
   const category = await grabSources(page, CATEGORY, 'categoria')
