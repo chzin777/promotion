@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import puppeteer, { type Browser, type Page } from 'puppeteer'
 import { config } from './config.js'
+import { resolveChrome } from './chrome.js'
 
 const AFFILIATE_HOME = 'https://www.mercadolivre.com.br/afiliados/linkbuilder'
 
@@ -30,6 +31,7 @@ export async function getMlBrowser(): Promise<Browser> {
   browser = await puppeteer.launch({
     headless: config.mlHeadless,
     userDataDir: config.mlSessionDir,
+    executablePath: resolveChrome(),
     defaultViewport: null,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   })

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import puppeteer, { type Browser, type Page } from 'puppeteer'
 import { config } from './config.js'
+import { resolveChrome } from './chrome.js'
 import { getAmazonTag } from './settings.js'
 import type { Promo } from './affiliate.js'
 
@@ -33,6 +34,7 @@ export async function getAmazonBrowser(): Promise<Browser> {
   browser = await puppeteer.launch({
     headless: config.amazonHeadless,
     userDataDir: config.amazonSessionDir,
+    executablePath: resolveChrome(),
     defaultViewport: null,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--lang=pt-BR'],
   })

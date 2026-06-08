@@ -10,6 +10,20 @@ echo   Promotion Bot - setup e automacao
 echo ============================================
 echo.
 
+REM 0. Node.js instalado? (sem ele nada roda)
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [X] Node.js nao encontrado nesta maquina.
+  echo     Instale o Node.js LTS: https://nodejs.org/  ^(baixe, instale, reabra este .bat^)
+  echo.
+  pause
+  exit /b 1
+)
+echo [0/7] Node.js OK.
+
+REM Navegador: usa o Chrome/Edge do sistema (resolveChrome no codigo).
+REM Win10/11 sempre tem Edge -> nao precisa baixar Chromium.
+
 REM 1. dependencias do worker
 if not exist "node_modules\" (
   echo [1/7] Instalando dependencias do worker... ^(demora na 1a vez^)

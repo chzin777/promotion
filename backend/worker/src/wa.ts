@@ -3,6 +3,7 @@ import pkg from 'whatsapp-web.js'
 import qrcode from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import { config } from './config.js'
+import { resolveChrome } from './chrome.js'
 
 const { Client, LocalAuth, MessageMedia } = pkg
 export type WAClient = InstanceType<typeof Client>
@@ -18,6 +19,7 @@ export function startClient(): Promise<WAClient> {
     authStrategy: new LocalAuth({ clientId: config.instance, dataPath: config.sessionDir }),
     puppeteer: {
       headless: true,
+      executablePath: resolveChrome(),
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     },
   })
