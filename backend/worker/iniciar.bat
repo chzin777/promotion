@@ -73,10 +73,18 @@ if not errorlevel 1 (
   exit /b 0
 )
 
-REM 6. login Mercado Livre (se nao tiver sessao salva)
+REM 6. login Mercado Livre OPCIONAL (so precisa se for usar a plataforma ML)
 if not exist ".ml_auth\" (
-  echo [5/7] Mercado Livre sem sessao - abrindo o Chrome. Faca login na conta de afiliado...
-  call npm run ml-login
+  echo.
+  echo [5/7] Mercado Livre nao logado.
+  echo     So precisa logar se for USAR o ML. Da pra pular e ligar/desligar
+  echo     o ML depois no painel ^(secao Plataformas^).
+  choice /c SN /t 8 /d N /m "Logar no Mercado Livre agora? S/N (pula sozinho em 8s)"
+  if errorlevel 2 (
+    echo [5/7] ML pulado. Se NAO for usar ML, desligue o toggle no painel.
+  ) else (
+    call npm run ml-login
+  )
 ) else (
   echo [5/7] Mercado Livre ja logado.
 )
