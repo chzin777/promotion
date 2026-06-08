@@ -240,6 +240,7 @@ const VARIANTS: MsgVariant[] = [
 function storeName(link: string): string {
   if (/amazon\./i.test(link)) return 'Amazon'
   if (/meli\.|mercadolivre/i.test(link)) return 'Mercado Livre'
+  if (/shopee\.com|s\.shopee\./i.test(link)) return 'Shopee'
   return ''
 }
 

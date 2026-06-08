@@ -1,0 +1,15 @@
+.git
+node_modules
+.next
+backend/worker/node_modules
+# sessoes e dados ficam no volume persistente, nunca na imagem
+backend/worker/.wwebjs_auth
+backend/worker/.ml_auth
+backend/worker/.amazon_session
+backend/worker/data
+backend/worker/qr-wa.png
+backend/worker/.env
+.env
+npm-debug.log*
+Dockerfile
+docker-compose.yml

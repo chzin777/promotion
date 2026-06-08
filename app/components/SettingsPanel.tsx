@@ -154,7 +154,7 @@ function PlatformCard({
   disabled,
 }: {
   name: string;
-  brand: "ml" | "amazon";
+  brand: "ml" | "amazon" | "shopee";
   enabled: boolean;
   onChange: (v: boolean) => void;
   description: string;
@@ -168,11 +168,17 @@ function PlatformCard({
           badge: "bg-[#FFE600] text-[#1a1a1a]",
           ring: enabled ? "ring-[#FFE600]/40" : "ring-transparent",
         }
-      : {
-          gradient: "from-[#FF9900]/20 via-[#FF9900]/5 to-transparent",
-          badge: "bg-[#FF9900] text-white",
-          ring: enabled ? "ring-[#FF9900]/40" : "ring-transparent",
-        };
+      : brand === "shopee"
+        ? {
+            gradient: "from-[#EE4D2D]/20 via-[#EE4D2D]/5 to-transparent",
+            badge: "bg-[#EE4D2D] text-white",
+            ring: enabled ? "ring-[#EE4D2D]/40" : "ring-transparent",
+          }
+        : {
+            gradient: "from-[#FF9900]/20 via-[#FF9900]/5 to-transparent",
+            badge: "bg-[#FF9900] text-white",
+            ring: enabled ? "ring-[#FF9900]/40" : "ring-transparent",
+          };
 
   return (
     <div
@@ -482,6 +488,15 @@ export default function SettingsPanel() {
               }
               disabled={locked}
             />
+            <PlatformCard
+              name="Shopee"
+              brand="shopee"
+              enabled={settings.shopeeEnabled}
+              onChange={(v) => patch("shopeeEnabled", v)}
+              description="Descobre ofertas e pega o link de afiliado via Shopee Affiliate API."
+              warning="Requer SHOPEE_APP_ID e SHOPEE_APP_SECRET no .env do worker."
+              disabled={locked}
+            />
           </div>
           <Field
             label="Tag de afiliado Amazon"
@@ -663,6 +678,19 @@ export default function SettingsPanel() {
                     setSettings({ ...settings, amazonFeedCount: Number(e.target.value) })
                   }
                   onBlur={() => void save({ amazonFeedCount: settings.amazonFeedCount })}
+                />
+              </Field>
+              <Field label="Produtos Shopee por coleta" hint="Quantidade quando a Shopee estiver ativa.">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className={inputClass}
+                  value={settings.shopeeFeedCount}
+                  onChange={(e) =>
+                    setSettings({ ...settings, shopeeFeedCount: Number(e.target.value) })
+                  }
+                  onBlur={() => void save({ shopeeFeedCount: settings.shopeeFeedCount })}
                 />
               </Field>
             </div>

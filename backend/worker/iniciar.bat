@@ -80,4 +80,9 @@ pushd "%ROOT_DIR%"
 call npm run dev:all
 popd
 
+echo.
+echo [x] A automacao encerrou (codigo %errorlevel%). Veja o erro acima.
+echo     Causa comum: porta 3000 ja em uso. Feche o outro painel e rode de novo.
+pause
+
 endlocal

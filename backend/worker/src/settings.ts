@@ -8,6 +8,8 @@ export type AppSettings = {
   mlEnabled: boolean
   amazonEnabled: boolean
   amazonTag: string
+  shopeeEnabled: boolean
+  shopeeFeedCount: number
   sendIntervalMinutes: number
   sendIntervalPool: number[]
   useIntervalPool: boolean
@@ -39,6 +41,8 @@ function defaultsFromEnv(): AppSettings {
     mlEnabled: true,
     amazonEnabled: Boolean(config.amazonTag),
     amazonTag: config.amazonTag,
+    shopeeEnabled: Boolean(config.shopeeAppId && config.shopeeSecret),
+    shopeeFeedCount: config.shopeeFeedCount,
     sendIntervalMinutes: config.intervalMin,
     sendIntervalPool: config.intervalPoolMin.length ? config.intervalPoolMin : [config.intervalMin],
     useIntervalPool: config.intervalPoolMin.length > 0,
@@ -61,6 +65,8 @@ export function normalizeSettings(raw: Partial<AppSettings> | null | undefined):
     mlEnabled: s.mlEnabled !== false,
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),
+    shopeeEnabled: s.shopeeEnabled === true,
+    shopeeFeedCount: clamp(Number(s.shopeeFeedCount ?? d.shopeeFeedCount), 0, 100),
     sendIntervalMinutes: clamp(Number(s.sendIntervalMinutes ?? d.sendIntervalMinutes), 1, 1440),
     sendIntervalPool: sanitizePool(s.sendIntervalPool),
     useIntervalPool: s.useIntervalPool !== false,
@@ -117,10 +123,16 @@ export function isAmazonLink(link: string, productUrl?: string | null): boolean 
   return /amazon\.com/i.test(src)
 }
 
+export function isShopeeLink(link: string, productUrl?: string | null): boolean {
+  const src = `${link} ${productUrl ?? ''}`
+  return /shopee\.com|s\.shopee\./i.test(src)
+}
+
 /** Item permitido pelos toggles de plataforma. Links manuais de outras lojas passam. */
 export function isItemAllowed(it: Item, s: AppSettings): boolean {
   if (isMlLink(it.link, it.productUrl) && !s.mlEnabled) return false
   if (isAmazonLink(it.link, it.productUrl) && !s.amazonEnabled) return false
+  if (isShopeeLink(it.link, it.productUrl) && !s.shopeeEnabled) return false
   return true
 }
 

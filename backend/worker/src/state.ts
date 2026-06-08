@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { asin } from './amazon.js'
 import { productId } from './discovery.js'
+import { shopeeId } from './shopee.js'
 import { config } from './config.js'
 
 const stateFile = path.join(config.dataDir, '.state.json')
@@ -11,10 +12,11 @@ export type State = {
   sentProducts: string[] // ids de produto ja enviados (MLB..., ASIN)
   seenProducts: string[] // ids ja processados pela descoberta (nao reprocessa)
   lastFeed: { date: string; am: boolean; pm: boolean } // controle dos 2 slots/dia
+  skipNext: number // marca os proximos N como enviados SEM mandar (descarta ja-enviados)
 }
 
 function empty(): State {
-  return { sent: [], sentProducts: [], seenProducts: [], lastFeed: { date: '', am: false, pm: false } }
+  return { sent: [], sentProducts: [], seenProducts: [], lastFeed: { date: '', am: false, pm: false }, skipNext: 0 }
 }
 
 function uniq(arr: string[]): string[] {
@@ -23,8 +25,15 @@ function uniq(arr: string[]): string[] {
 
 /** Le estado. Sem arquivo (ou formato antigo) = comeca zerado. */
 export function readState(): State {
+  const parsed = readStateFrom(stateFile) ?? readStateFrom(stateFile + '.bak')
+  if (!parsed) return empty()
+  return parsed
+}
+
+/** Tenta ler+parsear um arquivo de estado. null se faltar/corromper. */
+function readStateFrom(file: string): State | null {
   try {
-    const s = JSON.parse(fs.readFileSync(stateFile, 'utf8'))
+    const s = JSON.parse(fs.readFileSync(file, 'utf8'))
     return {
       sent: uniq(Array.isArray(s.sent) ? s.sent.map((x: unknown) => linkKey(String(x))) : []),
       sentProducts: uniq(Array.isArray(s.sentProducts) ? s.sentProducts.map(String) : []),
@@ -34,28 +43,39 @@ export function readState(): State {
         am: Boolean(s.lastFeed?.am),
         pm: Boolean(s.lastFeed?.pm),
       },
+      skipNext: Math.max(0, Number(s.skipNext) || 0),
     }
   } catch {
-    return empty()
+    return null // arquivo faltando ou corrompido -> caller tenta o .bak
   }
 }
 
-/** Persiste estado (sobrevive a reinicio do worker). */
+/**
+ * Persiste estado de forma ATOMICA. Escreve num .tmp e renomeia por cima — um
+ * kill no meio nunca deixa o .state.json truncado (corrompido -> readState cairia
+ * pra empty() e reenviaria tudo). Mantem um .bak do estado anterior como rede.
+ */
 export function writeState(s: State): void {
   fs.mkdirSync(path.dirname(stateFile), { recursive: true })
-  fs.writeFileSync(
-    stateFile,
-    JSON.stringify(
-      {
-        ...s,
-        sent: uniq(s.sent),
-        sentProducts: uniq(s.sentProducts),
-        seenProducts: uniq(s.seenProducts),
-      },
-      null,
-      2,
-    ),
+  const payload = JSON.stringify(
+    {
+      ...s,
+      sent: uniq(s.sent),
+      sentProducts: uniq(s.sentProducts),
+      seenProducts: uniq(s.seenProducts),
+    },
+    null,
+    2,
   )
+  const tmp = stateFile + '.tmp'
+  fs.writeFileSync(tmp, payload)
+  // backup do atual (se valido) antes de sobrescrever
+  try {
+    if (fs.existsSync(stateFile)) fs.copyFileSync(stateFile, stateFile + '.bak')
+  } catch {
+    /* backup e best-effort */
+  }
+  fs.renameSync(tmp, stateFile) // rename e atomico no mesmo filesystem
 }
 
 /** Chave estavel de um link (normaliza URL pra nao tratar variacoes como novas). */
@@ -84,6 +104,8 @@ export function productKey(link: string, productUrl?: string | null): string {
     if (/^MLB\d+$/i.test(ml)) return ml.toUpperCase()
     const a = asin(src)
     if (a) return a
+    const sh = shopeeId(src)
+    if (sh) return sh
   }
   return linkKey(link)
 }

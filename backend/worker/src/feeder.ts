@@ -2,6 +2,7 @@ import { config } from './config.js'
 import { discoverProductUrls, productId } from './discovery.js'
 import { buildPromos, type Promo } from './affiliate.js'
 import { discoverAmazonUrls, buildAmazonPromos, asin } from './amazon.js'
+import { discoverShopeePromos, shopeeId } from './shopee.js'
 import { readState, writeState, wasSent } from './state.js'
 import { appendQueue } from './queue.js'
 import { todayStr, isBasePriceGiftCard, type Item } from './products.js'
@@ -81,16 +82,31 @@ export async function runFeed(count?: number): Promise<number> {
       console.log('[feed] Amazon desativada no painel.')
     }
 
-    if (!mlUrls.length && !amzUrls.length) {
+    let shopeeItems: Item[] = []
+    if (settings.shopeeEnabled && settings.shopeeFeedCount > 0) {
+      try {
+        console.log(`[feed] Shopee: descobrindo ${settings.shopeeFeedCount} ofertas...`)
+        const shopeePromos = await discoverShopeePromos(settings.shopeeFeedCount, seen)
+        shopeeItems = promosToItems(shopeePromos)
+        console.log(`[feed] Shopee: ${shopeeItems.length} ofertas.`)
+      } catch (e) {
+        console.error('[feed] Shopee falhou:', (e as Error).message)
+      }
+    } else {
+      console.log('[feed] Shopee desativada no painel (ou sem AppId/Secret).')
+    }
+
+    if (!mlUrls.length && !amzUrls.length && !shopeeItems.length) {
       console.log('[feed] nenhum produto novo encontrado.')
       return 0
     }
 
-    const added = appendQueue(interleave(mlItems, amzItems))
+    const added = appendQueue(interleave(interleave(mlItems, amzItems), shopeeItems))
 
     const st = readState()
     for (const u of mlUrls) st.seenProducts.push(productId(u))
     for (const u of amzUrls) st.seenProducts.push(asin(u) || u)
+    for (const it of shopeeItems) st.seenProducts.push(shopeeId(it.productUrl ?? '') || it.link)
     writeState(st)
 
     console.log(`[feed] ${added} novos na fila.`)

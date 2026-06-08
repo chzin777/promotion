@@ -15,11 +15,59 @@ function stamp(): string {
   return new Date().toISOString()
 }
 
+/**
+ * Modo skip: marca os proximos N produtos como ENVIADOS sem mandar nada. Usa a
+ * fila atual e, se faltar, dispara a descoberta pra completar (ate maxRounds).
+ * Serve pra "pular" produtos que ja foram divulgados por fora.
+ */
+async function drainSkip(state: ReturnType<typeof readState>, settings: ReturnType<typeof readSettings>): Promise<void> {
+  console.log(`[${stamp()}] modo skip: pulando ${state.skipNext} produtos (marca como enviado, nao manda).`)
+  const maxRounds = 8
+  for (let round = 0; round < maxRounds && state.skipNext > 0; round++) {
+    let skippedThisRound = 0
+    for (const it of loadItems()) {
+      if (state.skipNext <= 0) break
+      if (wasSent(it, state) || !isItemAllowed(it, settings)) continue
+      recordSent(it, state)
+      state.skipNext -= 1
+      skippedThisRound += 1
+      console.log(`[${stamp()}] [skip] ${it.title || it.link} — faltam ${state.skipNext}`)
+    }
+    if (skippedThisRound > 0) {
+      writeState(state)
+      pruneQueue()
+    }
+    if (state.skipNext <= 0) break
+    // fila esgotou e ainda falta pular: descobre mais
+    try {
+      const added = await runFeed()
+      if (added <= 0 && skippedThisRound === 0) {
+        console.log(`[${stamp()}] modo skip: sem mais produtos pra pular. Restavam ${state.skipNext}, zerando.`)
+        state.skipNext = 0
+        writeState(state)
+        break
+      }
+    } catch (e) {
+      console.error(`[${stamp()}] modo skip: descoberta falhou:`, (e as Error).message)
+      break
+    }
+  }
+  writeState(state)
+  console.log(`[${stamp()}] modo skip concluido. Envio normal volta no proximo ciclo.`)
+}
+
 async function tick(client: WAClient): Promise<void> {
   const settings = readSettings()
 
   if (!settings.automationRunning) {
     console.log(`[${stamp()}] automacao pausada — inicie pelo painel web (http://localhost:3000).`)
+    return
+  }
+
+  // modo skip tem prioridade: queima os proximos N sem mandar
+  const skipState = readState()
+  if (skipState.skipNext > 0) {
+    await drainSkip(skipState, settings)
     return
   }
 

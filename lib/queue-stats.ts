@@ -92,33 +92,42 @@ function isAmazonLink(link: string, productUrl?: string | null): boolean {
 }
 
 function loadXlsx(file: string): Item[] {
-  const wb = XLSX.readFile(file);
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return [];
-  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
-  const items: Item[] = [];
-  for (const row of rows) {
-    if (!Array.isArray(row)) continue;
-    const cells = row.map((c) => (c == null ? "" : String(c).trim()));
-    const link = cells.find((c) => /https?:\/\/\S+/i.test(c))?.match(/https?:\/\/\S+/i)?.[0];
-    if (link) items.push({ link });
+  // arquivo pode estar travado (aberto no Excel) ou corrompido — nao derruba a API
+  try {
+    const wb = XLSX.readFile(file);
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    if (!sheet) return [];
+    const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+    const items: Item[] = [];
+    for (const row of rows) {
+      if (!Array.isArray(row)) continue;
+      const cells = row.map((c) => (c == null ? "" : String(c).trim()));
+      const link = cells.find((c) => /https?:\/\/\S+/i.test(c))?.match(/https?:\/\/\S+/i)?.[0];
+      if (link) items.push({ link });
+    }
+    return items;
+  } catch {
+    return [];
   }
-  return items;
 }
 
 function loadTxt(file: string): Item[] {
-  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
-  const items: Item[] = [];
-  let buf: string[] = [];
-  for (const line of lines) {
-    buf.push(line);
-    const url = line.match(/https?:\/\/\S+/);
-    if (url) {
-      items.push({ link: url[0] });
-      buf = [];
+  try {
+    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+    const items: Item[] = [];
+    let buf: string[] = [];
+    for (const line of lines) {
+      buf.push(line);
+      const url = line.match(/https?:\/\/\S+/);
+      if (url) {
+        items.push({ link: url[0] });
+        buf = [];
+      }
     }
+    return items;
+  } catch {
+    return [];
   }
-  return items;
 }
 
 function loadJson(date: string, dataDir: string): Item[] {

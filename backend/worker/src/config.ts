@@ -34,4 +34,8 @@ export const config = {
   amazonSessionDir: process.env.AMAZON_SESSION_DIR?.trim() || path.join(__dirname, '..', '.amazon_session'),
   amazonHeadless: process.env.AMAZON_HEADLESS?.trim() !== 'false', // default true: Amazon nao precisa logar
   amazonFeedCount: Number(process.env.AMAZON_FEED_COUNT ?? 10),
+  // === Shopee (Affiliate Open API — sem scrape, retorna link/nome/preco/foto) ===
+  shopeeAppId: process.env.SHOPEE_APP_ID?.trim() || '',
+  shopeeSecret: process.env.SHOPEE_APP_SECRET?.trim() || '',
+  shopeeFeedCount: Number(process.env.SHOPEE_FEED_COUNT ?? 10),
 }

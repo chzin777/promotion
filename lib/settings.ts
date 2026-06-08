@@ -54,6 +54,8 @@ export function normalizeSettings(
     mlEnabled: s.mlEnabled !== false,
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),
+    shopeeEnabled: s.shopeeEnabled === true,
+    shopeeFeedCount: clamp(Number(s.shopeeFeedCount ?? d.shopeeFeedCount), 0, 100),
     sendIntervalMinutes: clamp(
       Number(s.sendIntervalMinutes ?? d.sendIntervalMinutes),
       1,

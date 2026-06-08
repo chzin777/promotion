@@ -1,0 +1,28 @@
+services:
+  app:
+    build: .
+    image: promotion:latest
+    container_name: promotion
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.server
+    environment:
+      # no servidor o browser roda invisivel (sem tela)
+      ML_HEADLESS: "true"
+      AMAZON_HEADLESS: "true"
+    volumes:
+      # estado que precisa sobreviver a redeploy
+      - wa_session:/app/backend/worker/.wwebjs_auth
+      - ml_session:/app/backend/worker/.ml_auth
+      - amazon_session:/app/backend/worker/.amazon_session
+      - worker_data:/app/backend/worker/data
+    # Chromium em container pequeno: shm padrao (64m) estoura. Sobe pra 1g.
+    shm_size: "1gb"
+
+volumes:
+  wa_session:
+  ml_session:
+  amazon_session:
+  worker_data:
