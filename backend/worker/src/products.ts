@@ -212,24 +212,22 @@ export async function enrichItem(it: Item): Promise<Item> {
  * linhas de urgencia e o rotulo do CTA. Preco/titulo/link entram sempre.
  * Sorteia uma por envio pra nao repetir o mesmo texto toda hora.
  */
-type MsgVariant = { hype: string[]; cta: string }
-
-const VARIANTS: MsgVariant[] = [
-  { hype: ['📉 Aproveite enquanto está nesse valor', '⏳ Corre que é por tempo limitado!'], cta: '🛒 Pega o seu agora:' },
-  { hype: ['🤑 Difícil achar mais barato', '🔥 Últimas unidades nesse preço!'], cta: '👉 Não perde:' },
-  { hype: ['💸 Economia de verdade nessa', '⏰ Promo pode encerrar a qualquer hora'], cta: '👉 Aproveita aqui:' },
-  { hype: ['🔝 Bem avaliado e com bom preço', '⚡ Estoque voa, não vacila!'], cta: '👉 Confere no link:' },
-  { hype: ['🤯 Esse preço tá surreal', '⏳ Aproveite antes que volte ao normal'], cta: '🛒 Quero esse:' },
-  { hype: ['✅ Direto da loja oficial, sem enrolação', '⚡ Corre que acaba!'], cta: '👉 Garanta agora:' },
-  { hype: ['💰 Pagou menos, levou igual', '🔥 Oferta por tempo limitado'], cta: '🛒 Aproveita:' },
-  { hype: ['👀 Difícil deixar passar', '⏰ Pode subir a qualquer momento!'], cta: '👉 Pega o link:' },
-  { hype: ['🔥 Caiu o preço agora há pouco', '⏳ Não sei até quando fica assim'], cta: '🛒 Garante o seu:' },
-  { hype: ['💰 Vale muito a pena nesse valor', '🚀 Sai voando do estoque!'], cta: '👉 Aproveita:' },
-  { hype: ['⭐ Um dos mais procurados', '⏰ Promo por tempo limitado'], cta: '🛒 Pega já:' },
-  { hype: ['📉 Preço baixou de verdade', '⚡ Corre antes que normalize'], cta: '👉 Confere:' },
-  { hype: ['🤩 Esse achado tá top', '🔥 Últimas peças nesse preço'], cta: '👉 Garante:' },
-  { hype: ['✅ Qualidade com preço justo', '⏳ Oferta pode sumir a qualquer hora'], cta: '🛒 Quero o meu:' },
-  { hype: ['💎 Vale cada centavo', '⏰ Some rápido, não vacila'], cta: '🛒 Pega o link:' },
+const CTAS: string[] = [
+  '🛒 Pega o seu agora:',
+  '👉 Não perde:',
+  '👉 Aproveita aqui:',
+  '👉 Confere no link:',
+  '🛒 Quero esse:',
+  '👉 Garanta agora:',
+  '🛒 Aproveita:',
+  '👉 Pega o link:',
+  '🛒 Garante o seu:',
+  '👉 Aproveita:',
+  '🛒 Pega já:',
+  '👉 Confere:',
+  '👉 Garante:',
+  '🛒 Quero o meu:',
+  '🛒 Pega o link:',
 ]
 
 /** Nome da loja a partir do link (pra nao citar loja errada). */
@@ -244,7 +242,7 @@ function storeName(link: string): string {
 export function formatMessage(it: Item): string {
   if (it.message && it.message.trim()) return it.message.trim()
 
-  const v = VARIANTS[Math.floor(Math.random() * VARIANTS.length)]
+  const cta = CTAS[Math.floor(Math.random() * CTAS.length)]
   const lines: string[] = []
   if (it.title?.trim()) {
     lines.push(`📦 ${it.title.trim()}`)
@@ -258,15 +256,15 @@ export function formatMessage(it: Item): string {
   const old = it.oldPrice?.trim() ?? ''
   const curN = brNum(cur)
   const oldN = brNum(old)
-  if (cur && old && curN > 0 && oldN > curN) {
+  const temDesconto = Boolean(cur && old && curN > 0 && oldN > curN)
+  const temPreco = temDesconto || Boolean(cur)
+  if (lines.length && temPreco) lines.push('') // quebra entre o nome e os precos
+  if (temDesconto) {
     lines.push(`❌ De: ~${old}~`)
     lines.push(`✅ Por: ${cur}`)
   } else if (cur) {
     lines.push(`💰 ${cur}`)
   }
-
-  lines.push('')
-  for (const h of v.hype) lines.push(h)
 
   if (it.code?.trim()) {
     lines.push('')
@@ -275,7 +273,7 @@ export function formatMessage(it: Item): string {
   }
 
   lines.push('')
-  lines.push(v.cta)
+  lines.push(cta)
   lines.push(it.link.trim())
 
   return lines.join('\n')
