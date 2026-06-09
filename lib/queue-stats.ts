@@ -13,6 +13,8 @@ type WorkerState = {
   sentProducts: string[];
 };
 
+export type WaGroupRef = { id: string; name: string };
+
 export type QueueStats = {
   remainingTotal: number;
   remainingMl: number;
@@ -20,8 +22,7 @@ export type QueueStats = {
   remainingShopee: number;
   sentCount: number;
   amazonTagConfigured: boolean;
-  waGroupId: string;
-  waGroupName: string;
+  waGroups: WaGroupRef[];
   waConnected: boolean;
 };
 
@@ -29,23 +30,18 @@ function workerDataDir(): string {
   return path.join(process.cwd(), "backend", "worker", "data");
 }
 
-/** Id do grupo no .env (WHATSAPP_GROUP_ID). */
-function readGroupIdFromEnv(): string {
-  try {
-    const env = fs.readFileSync(path.join(process.cwd(), "backend", "worker", ".env"), "utf8");
-    return env.match(/^WHATSAPP_GROUP_ID=(.*)$/m)?.[1]?.trim() ?? "";
-  } catch {
-    return "";
-  }
-}
-
-/** Status do WhatsApp gravado pelo worker ao conectar (nome do grupo + conexao). */
-function readWaStatus(dataDir: string): { groupName: string; connected: boolean } {
+/** Status do WhatsApp gravado pelo worker ao conectar (grupos resolvidos + conexao). */
+function readWaStatus(dataDir: string): { groups: WaGroupRef[]; connected: boolean } {
   try {
     const s = JSON.parse(fs.readFileSync(path.join(dataDir, ".wa-status.json"), "utf8"));
-    return { groupName: String(s.groupName ?? ""), connected: Boolean(s.connected) };
+    const groups: WaGroupRef[] = Array.isArray(s.groups)
+      ? s.groups
+          .filter((g: unknown) => g && typeof (g as WaGroupRef).id === "string")
+          .map((g: WaGroupRef) => ({ id: g.id, name: String(g.name ?? "") }))
+      : [];
+    return { groups, connected: Boolean(s.connected) };
   } catch {
-    return { groupName: "", connected: false };
+    return { groups: [], connected: false };
   }
 }
 
@@ -222,8 +218,16 @@ export function readQueueStats(): QueueStats {
     else if (isShopeeLink(it.link, it.productUrl)) remainingShopee++;
   }
 
-  const amazonTagConfigured = Boolean(readSettingsFile().amazonTag.trim());
+  const settings = readSettingsFile();
+  const amazonTagConfigured = Boolean(settings.amazonTag.trim());
   const wa = readWaStatus(dataDir);
+
+  // grupos selecionados (settings) com nome resolvido pelo worker quando houver
+  const nameById = new Map(wa.groups.map((g) => [g.id, g.name]));
+  const waGroups: WaGroupRef[] = settings.whatsappGroupIds.map((id) => ({
+    id,
+    name: nameById.get(id) ?? "",
+  }));
 
   return {
     remainingTotal: pending.length,
@@ -232,8 +236,7 @@ export function readQueueStats(): QueueStats {
     remainingShopee,
     sentCount: state.sent.length,
     amazonTagConfigured,
-    waGroupId: readSettingsFile().whatsappGroupId || readGroupIdFromEnv(),
-    waGroupName: wa.groupName,
+    waGroups,
     waConnected: wa.connected,
   };
 }

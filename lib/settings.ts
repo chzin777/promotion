@@ -47,6 +47,19 @@ function sanitizePool(pool: unknown): number[] {
   return nums.length ? nums : SETTINGS_DEFAULTS.sendIntervalPool;
 }
 
+/** Lista de grupos: aceita array novo, string legada e fallback do .env. Dedup + sem vazios. */
+function sanitizeGroups(
+  raw: Partial<AppSettings> & { whatsappGroupId?: unknown },
+  envGroup: string,
+): string[] {
+  const out: string[] = [];
+  if (Array.isArray(raw.whatsappGroupIds)) out.push(...raw.whatsappGroupIds.map((x) => String(x)));
+  else if (typeof raw.whatsappGroupId === "string") out.push(raw.whatsappGroupId); // legado
+  const cleaned = out.map((g) => g.trim()).filter(Boolean);
+  if (!cleaned.length && envGroup) cleaned.push(envGroup);
+  return [...new Set(cleaned)];
+}
+
 export function normalizeSettings(
   raw: Partial<AppSettings> | null | undefined,
 ): AppSettings {
@@ -55,12 +68,11 @@ export function normalizeSettings(
   const d = {
     ...SETTINGS_DEFAULTS,
     amazonTag: envTag || SETTINGS_DEFAULTS.amazonTag,
-    whatsappGroupId: envGroup || SETTINGS_DEFAULTS.whatsappGroupId,
   };
   const s = raw ?? {};
   return {
     automationRunning: s.automationRunning === true,
-    whatsappGroupId: String(s.whatsappGroupId ?? d.whatsappGroupId).trim(),
+    whatsappGroupIds: sanitizeGroups(s, envGroup),
     mlEnabled: s.mlEnabled !== false,
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),

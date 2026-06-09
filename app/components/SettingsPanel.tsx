@@ -13,8 +13,7 @@ type Status = {
   remainingShopee: number;
   sentCount: number;
   amazonTagConfigured: boolean;
-  waGroupId: string;
-  waGroupName: string;
+  waGroups: { id: string; name: string }[];
   waConnected: boolean;
 };
 
@@ -298,7 +297,8 @@ export default function SettingsPanel() {
   const [shopeeAppIdText, setShopeeAppIdText] = useState("");
   const [shopeeSecretText, setShopeeSecretText] = useState("");
   const [groups, setGroups] = useState<WaGroup[]>([]);
-  const [groupIdText, setGroupIdText] = useState("");
+  const [newGroupText, setNewGroupText] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -318,7 +318,6 @@ export default function SettingsPanel() {
       setAmazonTagText(data.settings.amazonTag ?? "");
       setShopeeAppIdText(data.settings.shopeeAppId ?? "");
       setShopeeSecretText(data.settings.shopeeSecret ?? "");
-      setGroupIdText(data.settings.whatsappGroupId ?? "");
     } catch {
       showToast("Não foi possível carregar as configurações.");
     } finally {
@@ -326,13 +325,19 @@ export default function SettingsPanel() {
     }
   }, [showToast]);
 
-  const loadGroups = useCallback(async () => {
+  const loadGroups = useCallback(async (spin = false) => {
+    if (spin) setRefreshing(true);
     try {
       const res = await fetch("/api/groups");
       const data = await res.json();
       setGroups(Array.isArray(data.groups) ? data.groups : []);
     } catch {
       /* sem worker conectado ainda */
+    } finally {
+      if (spin) {
+        // segura o spin um instante pra animação não piscar
+        setTimeout(() => setRefreshing(false), 500);
+      }
     }
   }, []);
 
@@ -374,7 +379,6 @@ export default function SettingsPanel() {
       setAmazonTagText(data.settings.amazonTag ?? "");
       setShopeeAppIdText(data.settings.shopeeAppId ?? "");
       setShopeeSecretText(data.settings.shopeeSecret ?? "");
-      setGroupIdText(data.settings.whatsappGroupId ?? "");
       setSaveState("saved");
       showToast(toastMsg ?? "Configuração salva — o worker aplica na próxima ação.");
       setTimeout(() => setSaveState("idle"), 2500);
@@ -389,6 +393,22 @@ export default function SettingsPanel() {
     if (settings.automationRunning) return;
     setSettings((prev) => ({ ...prev, [key]: value }));
     void save({ [key]: value });
+  }
+
+  function addGroup(id: string) {
+    const v = id.trim();
+    if (!v || settings.automationRunning) return;
+    if (settings.whatsappGroupIds.includes(v)) return;
+    const next = [...settings.whatsappGroupIds, v];
+    setSettings((prev) => ({ ...prev, whatsappGroupIds: next }));
+    void save({ whatsappGroupIds: next });
+  }
+
+  function removeGroup(id: string) {
+    if (settings.automationRunning) return;
+    const next = settings.whatsappGroupIds.filter((g) => g !== id);
+    setSettings((prev) => ({ ...prev, whatsappGroupIds: next }));
+    void save({ whatsappGroupIds: next });
   }
 
   function toggleAutomation() {
@@ -515,7 +535,7 @@ export default function SettingsPanel() {
         </div>
       </section>
 
-      {/* Grupo de destino */}
+      {/* Grupos de destino */}
       <div className="animate-fade-in mb-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
@@ -523,13 +543,12 @@ export default function SettingsPanel() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Grupo de destino
+              Grupos de destino
             </p>
             <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-              {status?.waGroupName || settings.whatsappGroupId || "Nenhum grupo selecionado"}
-              {status?.waGroupName && settings.whatsappGroupId ? (
-                <span className="ml-2 font-mono text-xs font-normal text-zinc-400">{settings.whatsappGroupId}</span>
-              ) : null}
+              {settings.whatsappGroupIds.length
+                ? `${settings.whatsappGroupIds.length} grupo${settings.whatsappGroupIds.length > 1 ? "s" : ""} selecionado${settings.whatsappGroupIds.length > 1 ? "s" : ""}`
+                : "Nenhum grupo selecionado"}
             </p>
           </div>
           <span
@@ -544,59 +563,103 @@ export default function SettingsPanel() {
           </span>
         </div>
 
-        {/* Seletor de grupo */}
+        {/* Chips dos grupos selecionados */}
+        {settings.whatsappGroupIds.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {settings.whatsappGroupIds.map((id) => {
+              const name =
+                groups.find((g) => g.id === id)?.subject ||
+                status?.waGroups.find((g) => g.id === id)?.name ||
+                "";
+              return (
+                <span
+                  key={id}
+                  className="group flex max-w-full items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 py-1 pr-1 pl-2.5 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  title={id}
+                >
+                  <span className="truncate">{name || id}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(id)}
+                    disabled={locked}
+                    className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-emerald-600 transition-colors hover:bg-emerald-200 hover:text-emerald-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-emerald-400 dark:hover:bg-emerald-900"
+                    title="Remover grupo"
+                    aria-label={`Remover ${name || id}`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {/* Adicionar grupo */}
         <div className="mt-4 space-y-2.5 border-t border-[var(--card-border)] pt-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Trocar grupo</span>
+            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Adicionar grupo</span>
             <button
               type="button"
-              onClick={() => void loadGroups()}
-              className="flex items-center gap-1.5 rounded-lg border border-[var(--card-border)] px-2.5 py-1 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-900 disabled:opacity-50 dark:hover:text-zinc-100"
+              onClick={() => void loadGroups(true)}
+              disabled={refreshing}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--card-border)] px-2.5 py-1 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-900 disabled:cursor-wait disabled:opacity-60 dark:hover:text-zinc-100"
               title="Recarregar lista de grupos do WhatsApp"
             >
-              <IconRefresh className="h-3.5 w-3.5" />
+              <IconRefresh className={`h-3.5 w-3.5 transition-transform ${refreshing ? "animate-spin" : ""}`} />
               Atualizar lista
             </button>
           </div>
           {groups.length > 0 ? (
             <select
-              className={inputClass}
-              value={settings.whatsappGroupId}
+              className={`${inputClass} cursor-pointer`}
+              value=""
               disabled={locked}
-              onChange={(e) => patch("whatsappGroupId", e.target.value)}
+              onChange={(e) => {
+                if (e.target.value) addGroup(e.target.value);
+              }}
             >
-              <option value="">— selecione um grupo —</option>
-              {settings.whatsappGroupId &&
-              !groups.some((g) => g.id === settings.whatsappGroupId) ? (
-                <option value={settings.whatsappGroupId}>
-                  {status?.waGroupName || settings.whatsappGroupId} (atual)
-                </option>
-              ) : null}
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.subject || g.id}
-                </option>
-              ))}
+              <option value="">+ selecione um grupo para adicionar…</option>
+              {groups
+                .filter((g) => !settings.whatsappGroupIds.includes(g.id))
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.subject || g.id}
+                  </option>
+                ))}
             </select>
           ) : (
             <p className="text-xs text-amber-600 dark:text-amber-400">
               Lista vazia. O worker precisa estar conectado ao WhatsApp para listar os grupos — clique em Atualizar lista após conectar.
             </p>
           )}
-          <input
-            className={inputClass}
-            value={groupIdText}
-            disabled={locked}
-            placeholder="ou cole o ID manualmente: 1203...@g.us"
-            onChange={(e) => setGroupIdText(e.target.value)}
-            onBlur={() => {
-              if (locked) return;
-              const v = groupIdText.trim();
-              if (v !== settings.whatsappGroupId) void save({ whatsappGroupId: v });
-            }}
-          />
+          <div className="flex gap-2">
+            <input
+              className={inputClass}
+              value={newGroupText}
+              disabled={locked}
+              placeholder="ou cole o ID manualmente: 1203...@g.us"
+              onChange={(e) => setNewGroupText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  addGroup(newGroupText);
+                  setNewGroupText("");
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                addGroup(newGroupText);
+                setNewGroupText("");
+              }}
+              disabled={locked || !newGroupText.trim()}
+              className="shrink-0 cursor-pointer rounded-xl bg-emerald-500 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Adicionar
+            </button>
+          </div>
           {locked ? (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Pare a automação para trocar o grupo.</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Pare a automação para alterar os grupos.</p>
           ) : null}
         </div>
       </div>

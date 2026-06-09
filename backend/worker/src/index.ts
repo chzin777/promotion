@@ -18,7 +18,7 @@ import {
   withinActiveHours,
   intervalPool,
   pauseAutomationOnBoot,
-  getGroupId,
+  getGroupIds,
   type AppSettings,
 } from './settings.js'
 
@@ -186,7 +186,8 @@ async function main(): Promise<void> {
 
   const settings = readSettings()
   console.log('=== Worker promotion ===')
-  console.log(`Grupo: ${getGroupId() || '(nenhum — defina no painel)'}`)
+  const bootGroups = getGroupIds()
+  console.log(`Grupos: ${bootGroups.length ? bootGroups.join(', ') : '(nenhum — defina no painel)'}`)
   const ritmo = settings.useIntervalPool && settings.sendIntervalPool.length
     ? `${settings.sendIntervalPool.join('/')}min (sorteado)`
     : `${settings.sendIntervalMinutes}min`
@@ -205,10 +206,9 @@ async function main(): Promise<void> {
   scheduleNext(client)
 }
 
-/** Grava nome do grupo + conexao pra o painel mostrar pra onde manda. */
+/** Grava nomes dos grupos + conexao pra o painel mostrar pra onde manda. */
 async function writeWaStatus(client: WAClient): Promise<void> {
-  const groupId = getGroupId()
-  let groupName = ''
+  const groupIds = getGroupIds()
   let connected = false
   try {
     const state = await client.getState().catch(() => null)
@@ -216,23 +216,22 @@ async function writeWaStatus(client: WAClient): Promise<void> {
   } catch {
     /* assume desconectado */
   }
-  try {
-    if (groupId) {
-      const chat = await client.getChatById(groupId)
-      groupName = chat?.name ?? ''
+  const groups: { id: string; name: string }[] = []
+  for (const id of groupIds) {
+    let name = ''
+    try {
+      const chat = await client.getChatById(id)
+      name = chat?.name ?? ''
+    } catch (e) {
+      console.warn(`[wa] nao resolveu o nome do grupo ${id}:`, (e as Error).message)
     }
-  } catch (e) {
-    console.warn('[wa] nao resolveu o nome do grupo:', (e as Error).message)
+    groups.push({ id, name })
   }
   try {
     fs.mkdirSync(config.dataDir, { recursive: true })
     fs.writeFileSync(
       path.join(config.dataDir, '.wa-status.json'),
-      JSON.stringify(
-        { groupId, groupName, connected, updatedAt: new Date().toISOString() },
-        null,
-        2,
-      ),
+      JSON.stringify({ groups, connected, updatedAt: new Date().toISOString() }, null, 2),
     )
   } catch {
     /* best-effort */

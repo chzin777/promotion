@@ -5,7 +5,7 @@ import type { Item } from './products.js'
 
 export type AppSettings = {
   automationRunning: boolean
-  whatsappGroupId: string
+  whatsappGroupIds: string[]
   mlEnabled: boolean
   amazonEnabled: boolean
   amazonTag: string
@@ -38,10 +38,19 @@ function sanitizePool(pool: unknown): number[] {
   return nums.length ? nums : [11, 7, 15]
 }
 
+/** Grupos: aceita array novo, string legada (whatsappGroupId) e fallback. Dedup + sem vazios. */
+function sanitizeGroups(s: Record<string, unknown>, fallback: string[]): string[] {
+  const out: string[] = []
+  if (Array.isArray(s.whatsappGroupIds)) out.push(...s.whatsappGroupIds.map((x) => String(x)))
+  else if (typeof s.whatsappGroupId === 'string') out.push(s.whatsappGroupId) // legado
+  const cleaned = out.map((g) => g.trim()).filter(Boolean)
+  return [...new Set(cleaned.length ? cleaned : fallback)]
+}
+
 function defaultsFromEnv(): AppSettings {
   return {
     automationRunning: false,
-    whatsappGroupId: config.groupId,
+    whatsappGroupIds: config.groupId ? [config.groupId] : [],
     mlEnabled: true,
     amazonEnabled: Boolean(config.amazonTag),
     amazonTag: config.amazonTag,
@@ -68,7 +77,7 @@ export function normalizeSettings(raw: Partial<AppSettings> | null | undefined):
   const s = raw ?? {}
   return {
     automationRunning: s.automationRunning === true,
-    whatsappGroupId: String(s.whatsappGroupId ?? d.whatsappGroupId).trim(),
+    whatsappGroupIds: sanitizeGroups(s as Record<string, unknown>, d.whatsappGroupIds),
     mlEnabled: s.mlEnabled !== false,
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),
@@ -122,9 +131,11 @@ export function getAmazonTag(): string {
   return readSettings().amazonTag.trim()
 }
 
-/** Grupo de destino (painel web; fallback .env via config.groupId). */
-export function getGroupId(): string {
-  return readSettings().whatsappGroupId.trim() || config.groupId
+/** Grupos de destino (painel web; fallback .env via config.groupId). */
+export function getGroupIds(): string[] {
+  const ids = readSettings().whatsappGroupIds.map((g) => g.trim()).filter(Boolean)
+  if (ids.length) return ids
+  return config.groupId ? [config.groupId] : []
 }
 
 export function isMlLink(link: string, productUrl?: string | null): boolean {
