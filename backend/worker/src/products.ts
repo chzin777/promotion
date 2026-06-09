@@ -212,28 +212,24 @@ export async function enrichItem(it: Item): Promise<Item> {
  * linhas de urgencia e o rotulo do CTA. Preco/titulo/link entram sempre.
  * Sorteia uma por envio pra nao repetir o mesmo texto toda hora.
  */
-type MsgVariant = { head: string; hype: string[]; cta: string }
+type MsgVariant = { hype: string[]; cta: string }
 
 const VARIANTS: MsgVariant[] = [
-  { head: '🔥 OFERTA IMPERDÍVEL 🔥', hype: ['✅ Frete e estoque você confere no link', '⚡ Promoção pode acabar a qualquer momento!'], cta: '👉 Garanta o seu:' },
-  { head: '🚨 BAIXOU O PREÇO 🚨', hype: ['📉 Aproveite enquanto está nesse valor', '⏳ Corre que é por tempo limitado!'], cta: '🛒 Pega o seu agora:' },
-  { head: '💥 ACHADINHO 💥', hype: ['🤑 Difícil achar mais barato', '🔥 Últimas unidades nesse preço!'], cta: '👉 Não perde:' },
-  { head: '⭐ OFERTA RELÂMPAGO ⭐', hype: ['⚡ Some rapidinho do estoque', '✅ Compra 100% segura'], cta: '🛒 Garante já:' },
-  { head: '🎯 PREÇO QUE VALE A PENA 🎯', hype: ['💸 Economia de verdade nessa', '⏰ Promo pode encerrar a qualquer hora'], cta: '👉 Aproveita aqui:' },
-  { head: '🛍️ SEPAREI PRA VOCÊS 🛍️', hype: ['🔝 Bem avaliado e com bom preço', '⚡ Estoque voa, não vacila!'], cta: '👉 Confere no link:' },
-  { head: '💣 OFERTA BOMBA 💣', hype: ['🤯 Esse preço tá surreal', '⏳ Aproveite antes que volte ao normal'], cta: '🛒 Quero esse:' },
-  { head: '🔥 PROMOÇÃO QUENTE 🔥', hype: ['✅ Direto da loja oficial, sem enrolação', '⚡ Corre que acaba!'], cta: '👉 Garanta agora:' },
-  { head: '🏷️ DESCONTÃO 🏷️', hype: ['💰 Pagou menos, levou igual', '🔥 Oferta por tempo limitado'], cta: '🛒 Aproveita:' },
-  { head: '🤑 OLHA O PREÇO 🤑', hype: ['👀 Difícil deixar passar', '⏰ Pode subir a qualquer momento!'], cta: '👉 Pega o link:' },
-  { head: '🛒 OFERTAÇO 🛒', hype: ['💯 Bom preço, vendedor confiável', '⚡ Aproveite antes que acabe'], cta: '👉 Compra aqui:' },
-  { head: '⚡ RELÂMPAGO ⚡', hype: ['🔥 Caiu o preço agora há pouco', '⏳ Não sei até quando fica assim'], cta: '🛒 Garante o seu:' },
-  { head: '🎁 OPORTUNIDADE 🎁', hype: ['💰 Vale muito a pena nesse valor', '🚀 Sai voando do estoque!'], cta: '👉 Aproveita:' },
-  { head: '🔝 TOP DO MOMENTO 🔝', hype: ['⭐ Um dos mais procurados', '⏰ Promo por tempo limitado'], cta: '🛒 Pega já:' },
-  { head: '💸 ECONOMIA NA CERTA 💸', hype: ['📉 Preço baixou de verdade', '⚡ Corre antes que normalize'], cta: '👉 Confere:' },
-  { head: '🚀 CORRE PRA VER 🚀', hype: ['🤩 Esse achado tá top', '🔥 Últimas peças nesse preço'], cta: '👉 Garante:' },
-  { head: '🏆 ACHADO PREMIUM 🏆', hype: ['✅ Qualidade com preço justo', '⏳ Oferta pode sumir a qualquer hora'], cta: '🛒 Quero o meu:' },
-  { head: '🔥 QUEIMA DE ESTOQUE 🔥', hype: ['💥 Preço de liquidação', '⚡ Enquanto durar o estoque!'], cta: '👉 Aproveita agora:' },
-  { head: '👑 OFERTA TOP 👑', hype: ['💎 Vale cada centavo', '⏰ Some rápido, não vacila'], cta: '🛒 Pega o link:' },
+  { hype: ['📉 Aproveite enquanto está nesse valor', '⏳ Corre que é por tempo limitado!'], cta: '🛒 Pega o seu agora:' },
+  { hype: ['🤑 Difícil achar mais barato', '🔥 Últimas unidades nesse preço!'], cta: '👉 Não perde:' },
+  { hype: ['💸 Economia de verdade nessa', '⏰ Promo pode encerrar a qualquer hora'], cta: '👉 Aproveita aqui:' },
+  { hype: ['🔝 Bem avaliado e com bom preço', '⚡ Estoque voa, não vacila!'], cta: '👉 Confere no link:' },
+  { hype: ['🤯 Esse preço tá surreal', '⏳ Aproveite antes que volte ao normal'], cta: '🛒 Quero esse:' },
+  { hype: ['✅ Direto da loja oficial, sem enrolação', '⚡ Corre que acaba!'], cta: '👉 Garanta agora:' },
+  { hype: ['💰 Pagou menos, levou igual', '🔥 Oferta por tempo limitado'], cta: '🛒 Aproveita:' },
+  { hype: ['👀 Difícil deixar passar', '⏰ Pode subir a qualquer momento!'], cta: '👉 Pega o link:' },
+  { hype: ['🔥 Caiu o preço agora há pouco', '⏳ Não sei até quando fica assim'], cta: '🛒 Garante o seu:' },
+  { hype: ['💰 Vale muito a pena nesse valor', '🚀 Sai voando do estoque!'], cta: '👉 Aproveita:' },
+  { hype: ['⭐ Um dos mais procurados', '⏰ Promo por tempo limitado'], cta: '🛒 Pega já:' },
+  { hype: ['📉 Preço baixou de verdade', '⚡ Corre antes que normalize'], cta: '👉 Confere:' },
+  { hype: ['🤩 Esse achado tá top', '🔥 Últimas peças nesse preço'], cta: '👉 Garante:' },
+  { hype: ['✅ Qualidade com preço justo', '⏳ Oferta pode sumir a qualquer hora'], cta: '🛒 Quero o meu:' },
+  { hype: ['💎 Vale cada centavo', '⏰ Some rápido, não vacila'], cta: '🛒 Pega o link:' },
 ]
 
 /** Nome da loja a partir do link (pra nao citar loja errada). */
@@ -251,12 +247,10 @@ export function formatMessage(it: Item): string {
   const v = VARIANTS[Math.floor(Math.random() * VARIANTS.length)]
   const lines: string[] = []
   if (it.title?.trim()) {
-    lines.push(v.head)
-    lines.push('')
     lines.push(`📦 ${it.title.trim()}`)
   } else {
     const loja = storeName(it.link)
-    lines.push(loja ? `${v.head} — ${loja}` : v.head)
+    if (loja) lines.push(`🛍️ Oferta na ${loja}`)
   }
 
   // preco: mostra De/Por (riscado) so quando tem desconto real; senao so o atual
