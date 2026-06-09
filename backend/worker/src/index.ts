@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { config } from './config.js'
-import { loadItems, enrichItem } from './products.js'
+import { loadItems, enrichItem, type Item } from './products.js'
 import { readState, writeState, recordSent, wasSent } from './state.js'
 import { pruneQueue } from './queue.js'
 import { sendItem, checkConnection } from './whatsapp.js'
@@ -9,10 +9,52 @@ import { startClient, type WAClient } from './wa.js'
 import { runFeed, maybeFeed } from './feeder.js'
 import { closeMlBrowser } from './ml.js'
 import { closeAmazonBrowser } from './amazon.js'
-import { readSettings, isItemAllowed, withinActiveHours, intervalPool, pauseAutomationOnBoot } from './settings.js'
+import {
+  readSettings,
+  isItemAllowed,
+  isMlLink,
+  isAmazonLink,
+  isShopeeLink,
+  withinActiveHours,
+  intervalPool,
+  pauseAutomationOnBoot,
+  type AppSettings,
+} from './settings.js'
 
 const PAUSED_POLL_MS = 30_000
 const PANEL_URL = `http://localhost:${process.env.PORT ?? '3002'}`
+
+// ordem da rotacao alternada entre plataformas (so entram as que tem item na fila)
+const PLATFORM_CYCLE = ['shopee', 'amazon', 'ml'] as const
+type Platform = (typeof PLATFORM_CYCLE)[number] | 'outro'
+
+function platformOf(it: Item): Platform {
+  if (isShopeeLink(it.link, it.productUrl)) return 'shopee'
+  if (isAmazonLink(it.link, it.productUrl)) return 'amazon'
+  if (isMlLink(it.link, it.productUrl)) return 'ml'
+  return 'outro'
+}
+
+/**
+ * Escolhe o proximo item alternando plataforma: shopee -> amazon -> ml -> ...
+ * So entram no ciclo as plataformas com item elegivel agora. Comeca pela seguinte
+ * a ultima enviada (state.lastPlatform). Links manuais ('outro') so saem se nao
+ * houver nada do ciclo. Devolve undefined se nada elegivel.
+ */
+function pickNext(items: Item[], state: ReturnType<typeof readState>, settings: AppSettings): Item | undefined {
+  const eligible = items.filter((it) => !wasSent(it, state) && isItemAllowed(it, settings))
+  if (!eligible.length) return undefined
+  const present = PLATFORM_CYCLE.filter((p) => eligible.some((it) => platformOf(it) === p))
+  if (!present.length) return eligible[0] // so links manuais
+  const lastIdx = present.indexOf(state.lastPlatform as (typeof present)[number])
+  const startIdx = lastIdx >= 0 ? (lastIdx + 1) % present.length : 0
+  for (let i = 0; i < present.length; i++) {
+    const p = present[(startIdx + i) % present.length]
+    const hit = eligible.find((it) => platformOf(it) === p)
+    if (hit) return hit
+  }
+  return eligible[0]
+}
 
 function stamp(): string {
   return new Date().toISOString()
@@ -105,7 +147,7 @@ async function tick(client: WAClient): Promise<void> {
   }
 
   const state = readState()
-  const next = items.find((it) => !wasSent(it, state) && isItemAllowed(it, settings))
+  const next = pickNext(items, state, settings)
   if (!next) {
     const paused = items.some((it) => !wasSent(it, state))
     if (paused) {
@@ -127,6 +169,8 @@ async function tick(client: WAClient): Promise<void> {
     await sendItem(client, item)
     console.log(`[${stamp()}] enviado: ${item.title || item.link}`)
     recordSent(next, state)
+    const plat = platformOf(next)
+    if (plat !== 'outro') state.lastPlatform = plat
     writeState(state)
     pruneQueue()
   } catch (e) {

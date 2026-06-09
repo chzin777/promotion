@@ -14,6 +14,7 @@ export type State = {
   lastFeed: { date: string; am: boolean; pm: boolean } // controle dos 2 slots/dia
   skipNext: number // marca os proximos N como enviados SEM mandar (descarta ja-enviados)
   sentSignatures: string[] // "AAAA-MM-DD|assinatura" — evita 2 produtos do mesmo tipo/dia
+  lastPlatform: string // ultima plataforma enviada (rotacao alternada shopee/amazon/ml)
 }
 
 function empty(): State {
@@ -24,6 +25,7 @@ function empty(): State {
     lastFeed: { date: '', am: false, pm: false },
     skipNext: 0,
     sentSignatures: [],
+    lastPlatform: '',
   }
 }
 
@@ -53,6 +55,7 @@ function readStateFrom(file: string): State | null {
       },
       skipNext: Math.max(0, Number(s.skipNext) || 0),
       sentSignatures: uniq(Array.isArray(s.sentSignatures) ? s.sentSignatures.map(String) : []),
+      lastPlatform: String(s.lastPlatform ?? ''),
     }
   } catch {
     return null // arquivo faltando ou corrompido -> caller tenta o .bak
