@@ -21,6 +21,13 @@ if errorlevel 1 (
 )
 echo [0/7] Node.js OK.
 
+REM 0b. Acha a 1a porta livre a partir da 3002 (caca porta longe se preciso)
+set "PANEL_PORT="
+for /f "usebackq delims=" %%p in (`powershell -NoProfile -Command "$p=3002; while($true){try{$l=[System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback,$p);$l.Start();$l.Stop();break}catch{$p++; if($p -gt 3100){break}}}; $p"`) do set "PANEL_PORT=%%p"
+if not defined PANEL_PORT set "PANEL_PORT=3002"
+set "PORT=!PANEL_PORT!"
+echo [0/7] Porta livre do painel: !PANEL_PORT!
+
 REM Navegador: usa o Chrome/Edge do sistema (resolveChrome no codigo).
 REM Win10/11 sempre tem Edge -> nao precisa baixar Chromium.
 
@@ -90,12 +97,19 @@ if not exist ".ml_auth\" (
 )
 
 REM 7. Amazon: tag de afiliado configuravel no painel web ^(secao Plataformas^).
-echo [i] Tag Amazon: configure no painel http://localhost:3000 ^(com automacao parada^).
+echo [i] Tag Amazon: configure no painel http://localhost:!PANEL_PORT! ^(com automacao parada^).
 echo.
+
+REM 7b. mata Chrome orfao do bot que ficou travado de uma run anterior
+REM     (Ctrl+C no Windows nem sempre mata o Chrome filho -> profile fica locked)
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"name='chrome.exe'\" | Where-Object { $_.CommandLine -like '*session-promotion*' -or $_.CommandLine -like '*.ml_auth*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>nul
+del /f /q ".wwebjs_auth\session-promotion\Singleton*" >nul 2>nul
+del /f /q ".ml_auth\Singleton*" >nul 2>nul
+echo [6/7] Chrome travado de runs anteriores limpo.
 
 REM 8. painel + worker no mesmo terminal
 echo [6/7] Iniciando painel e automacao neste terminal...
-echo       Painel: http://localhost:3000
+echo       Painel: http://localhost:!PANEL_PORT!
 echo       Ctrl+C encerra os dois. ^(worker salva a sessao^)
 echo.
 pushd "%ROOT_DIR%"
@@ -103,8 +117,10 @@ call npm run dev:all
 popd
 
 echo.
-echo [x] A automacao encerrou (codigo %errorlevel%). Veja o erro acima.
-echo     Causa comum: porta 3000 ja em uso. Feche o outro painel e rode de novo.
+echo [x] A automacao encerrou (codigo %errorlevel%). Veja a mensagem de erro REAL acima.
+echo     Porta do painel: !PANEL_PORT! (achada automaticamente, raramente e o problema).
+echo     Se falar "browser is already running": Chrome do bot travou — rode este .bat
+echo     de novo (ele ja limpa Chrome travado sozinho no inicio).
 pause
 
 endlocal

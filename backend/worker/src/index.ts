@@ -12,6 +12,7 @@ import { closeAmazonBrowser } from './amazon.js'
 import { readSettings, isItemAllowed, withinActiveHours, intervalPool, pauseAutomationOnBoot } from './settings.js'
 
 const PAUSED_POLL_MS = 30_000
+const PANEL_URL = `http://localhost:${process.env.PORT ?? '3002'}`
 
 function stamp(): string {
   return new Date().toISOString()
@@ -62,7 +63,7 @@ async function tick(client: WAClient): Promise<void> {
   const settings = readSettings()
 
   if (!settings.automationRunning) {
-    console.log(`[${stamp()}] automacao pausada — inicie pelo painel web (http://localhost:3000).`)
+    console.log(`[${stamp()}] automacao pausada — inicie pelo painel web (${PANEL_URL}).`)
     return
   }
 
@@ -146,7 +147,7 @@ async function main(): Promise<void> {
   console.log(`Intervalo: ${ritmo} | horario ativo: ${settings.activeHoursStart}-${settings.activeHoursEnd}h`)
   console.log(`ML: ${settings.mlEnabled ? 'on' : 'off'} | Amazon: ${settings.amazonEnabled ? 'on' : 'off'}`)
   console.log(`Coleta reativa quando fila <= ${settings.feedReactiveThreshold} itens`)
-  console.log('Automação PAUSADA — inicie pelo painel web: http://localhost:3000')
+  console.log(`Automação PAUSADA — inicie pelo painel web: ${PANEL_URL}`)
   console.log('Subindo WhatsApp (whatsapp-web.js)...')
 
   const client = await startClient()
