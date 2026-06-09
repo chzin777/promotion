@@ -232,7 +232,7 @@ export function readQueueStats(): QueueStats {
     remainingShopee,
     sentCount: state.sent.length,
     amazonTagConfigured,
-    waGroupId: readGroupIdFromEnv(),
+    waGroupId: readSettingsFile().whatsappGroupId || readGroupIdFromEnv(),
     waGroupName: wa.groupName,
     waConnected: wa.connected,
   };

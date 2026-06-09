@@ -5,6 +5,7 @@ import type { Item } from './products.js'
 
 export type AppSettings = {
   automationRunning: boolean
+  whatsappGroupId: string
   mlEnabled: boolean
   amazonEnabled: boolean
   amazonTag: string
@@ -40,6 +41,7 @@ function sanitizePool(pool: unknown): number[] {
 function defaultsFromEnv(): AppSettings {
   return {
     automationRunning: false,
+    whatsappGroupId: config.groupId,
     mlEnabled: true,
     amazonEnabled: Boolean(config.amazonTag),
     amazonTag: config.amazonTag,
@@ -66,6 +68,7 @@ export function normalizeSettings(raw: Partial<AppSettings> | null | undefined):
   const s = raw ?? {}
   return {
     automationRunning: s.automationRunning === true,
+    whatsappGroupId: String(s.whatsappGroupId ?? d.whatsappGroupId).trim(),
     mlEnabled: s.mlEnabled !== false,
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),
@@ -117,6 +120,11 @@ export function pauseAutomationOnBoot(): void {
 /** Tag de afiliado Amazon (painel web; fallback .env no 1o boot). */
 export function getAmazonTag(): string {
   return readSettings().amazonTag.trim()
+}
+
+/** Grupo de destino (painel web; fallback .env via config.groupId). */
+export function getGroupId(): string {
+  return readSettings().whatsappGroupId.trim() || config.groupId
 }
 
 export function isMlLink(link: string, productUrl?: string | null): boolean {

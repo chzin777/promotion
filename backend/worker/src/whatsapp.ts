@@ -1,11 +1,14 @@
-import { config } from './config.js'
 import { formatMessage, type Item } from './products.js'
+import { getGroupId } from './settings.js'
 import { MessageMedia, type WAClient } from './wa.js'
 
-function requireGroup(): void {
-  if (!config.groupId) {
-    throw new Error('WHATSAPP_GROUP_ID vazio no .env. Rode `npm run groups` e cole o id ...@g.us')
+/** Grupo de destino: painel (settings.json) com fallback .env. Lanca se vazio. */
+function requireGroup(): string {
+  const id = getGroupId()
+  if (!id) {
+    throw new Error('Grupo vazio. Defina no painel ou em WHATSAPP_GROUP_ID no .env (id ...@g.us)')
   }
+  return id
 }
 
 /** Estado da conexao (so loga). */
@@ -17,15 +20,15 @@ export async function checkConnection(client: WAClient): Promise<string> {
 
 /** Envia texto pro grupo. */
 export async function sendText(client: WAClient, text: string) {
-  requireGroup()
-  return client.sendMessage(config.groupId, text)
+  const groupId = requireGroup()
+  return client.sendMessage(groupId, text)
 }
 
 /** Envia imagem (por URL) com legenda pro grupo. */
 export async function sendImage(client: WAClient, imageUrl: string, caption: string) {
-  requireGroup()
+  const groupId = requireGroup()
   const media = await MessageMedia.fromUrl(imageUrl, { unsafeMime: true })
-  return client.sendMessage(config.groupId, media, { caption })
+  return client.sendMessage(groupId, media, { caption })
 }
 
 /** Envia um item: foto+legenda se houver imagem, senao texto puro. */

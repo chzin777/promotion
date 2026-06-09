@@ -8,17 +8,21 @@ import {
 export type { AppSettings } from "./settings-types";
 export { SETTINGS_DEFAULTS } from "./settings-types";
 
-function readAmazonTagFromEnv(): string {
+function readEnvVar(name: string): string {
   try {
     const env = fs.readFileSync(
       path.join(process.cwd(), "backend", "worker", ".env"),
       "utf8",
     );
-    const m = env.match(/^AMAZON_TAG=(.*)$/m);
+    const m = env.match(new RegExp(`^${name}=(.*)$`, "m"));
     return m?.[1]?.trim() ?? "";
   } catch {
     return "";
   }
+}
+
+function readAmazonTagFromEnv(): string {
+  return readEnvVar("AMAZON_TAG");
 }
 
 export function settingsPath(): string {
@@ -47,10 +51,16 @@ export function normalizeSettings(
   raw: Partial<AppSettings> | null | undefined,
 ): AppSettings {
   const envTag = readAmazonTagFromEnv();
-  const d = { ...SETTINGS_DEFAULTS, amazonTag: envTag || SETTINGS_DEFAULTS.amazonTag };
+  const envGroup = readEnvVar("WHATSAPP_GROUP_ID");
+  const d = {
+    ...SETTINGS_DEFAULTS,
+    amazonTag: envTag || SETTINGS_DEFAULTS.amazonTag,
+    whatsappGroupId: envGroup || SETTINGS_DEFAULTS.whatsappGroupId,
+  };
   const s = raw ?? {};
   return {
     automationRunning: s.automationRunning === true,
+    whatsappGroupId: String(s.whatsappGroupId ?? d.whatsappGroupId).trim(),
     mlEnabled: s.mlEnabled !== false,
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),

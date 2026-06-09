@@ -4,7 +4,7 @@ import { config } from './config.js'
 import { loadItems, enrichItem, type Item } from './products.js'
 import { readState, writeState, recordSent, wasSent } from './state.js'
 import { pruneQueue } from './queue.js'
-import { sendItem, checkConnection } from './whatsapp.js'
+import { sendItem, checkConnection, listGroups } from './whatsapp.js'
 import { startClient, type WAClient } from './wa.js'
 import { runFeed, maybeFeed } from './feeder.js'
 import { closeMlBrowser } from './ml.js'
@@ -18,6 +18,7 @@ import {
   withinActiveHours,
   intervalPool,
   pauseAutomationOnBoot,
+  getGroupId,
   type AppSettings,
 } from './settings.js'
 
@@ -103,6 +104,7 @@ async function drainSkip(state: ReturnType<typeof readState>, settings: ReturnTy
 
 async function tick(client: WAClient): Promise<void> {
   const settings = readSettings()
+  await writeWaStatus(client) // mantem o painel com conexao + grupo atuais
 
   if (!settings.automationRunning) {
     console.log(`[${stamp()}] automacao pausada — inicie pelo painel web (${PANEL_URL}).`)
@@ -184,7 +186,7 @@ async function main(): Promise<void> {
 
   const settings = readSettings()
   console.log('=== Worker promotion ===')
-  console.log(`Grupo: ${config.groupId}`)
+  console.log(`Grupo: ${getGroupId() || '(nenhum — defina no painel)'}`)
   const ritmo = settings.useIntervalPool && settings.sendIntervalPool.length
     ? `${settings.sendIntervalPool.join('/')}min (sorteado)`
     : `${settings.sendIntervalMinutes}min`
@@ -197,6 +199,7 @@ async function main(): Promise<void> {
   const client = await startClient()
   await checkConnection(client)
   await writeWaStatus(client)
+  await writeWaGroups(client)
 
   await tick(client)
   scheduleNext(client)
@@ -204,12 +207,19 @@ async function main(): Promise<void> {
 
 /** Grava nome do grupo + conexao pra o painel mostrar pra onde manda. */
 async function writeWaStatus(client: WAClient): Promise<void> {
+  const groupId = getGroupId()
   let groupName = ''
+  let connected = false
   try {
-    if (config.groupId) {
-      const chat = await client.getChatById(config.groupId)
+    const state = await client.getState().catch(() => null)
+    connected = state === 'CONNECTED'
+  } catch {
+    /* assume desconectado */
+  }
+  try {
+    if (groupId) {
+      const chat = await client.getChatById(groupId)
       groupName = chat?.name ?? ''
-      console.log(`[wa] enviando para o grupo: ${groupName || '(sem nome)'} (${config.groupId})`)
     }
   } catch (e) {
     console.warn('[wa] nao resolveu o nome do grupo:', (e as Error).message)
@@ -219,13 +229,28 @@ async function writeWaStatus(client: WAClient): Promise<void> {
     fs.writeFileSync(
       path.join(config.dataDir, '.wa-status.json'),
       JSON.stringify(
-        { groupId: config.groupId, groupName, connected: true, updatedAt: new Date().toISOString() },
+        { groupId, groupName, connected, updatedAt: new Date().toISOString() },
         null,
         2,
       ),
     )
   } catch {
     /* best-effort */
+  }
+}
+
+/** Dump da lista de grupos do WhatsApp conectado pra o painel escolher o destino. */
+async function writeWaGroups(client: WAClient): Promise<void> {
+  try {
+    const groups = await listGroups(client)
+    fs.mkdirSync(config.dataDir, { recursive: true })
+    fs.writeFileSync(
+      path.join(config.dataDir, '.wa-groups.json'),
+      JSON.stringify({ groups, updatedAt: new Date().toISOString() }, null, 2),
+    )
+    console.log(`[wa] ${groups.length} grupos disponiveis no painel.`)
+  } catch (e) {
+    console.warn('[wa] nao listou os grupos:', (e as Error).message)
   }
 }
 

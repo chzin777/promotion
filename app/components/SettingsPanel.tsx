@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppSettings } from "@/lib/settings-types";
 import { SETTINGS_DEFAULTS } from "@/lib/settings-types";
 
+type WaGroup = { id: string; subject: string };
+
 type Status = {
   remainingTotal: number;
   remainingMl: number;
@@ -295,6 +297,8 @@ export default function SettingsPanel() {
   const [amazonTagText, setAmazonTagText] = useState("");
   const [shopeeAppIdText, setShopeeAppIdText] = useState("");
   const [shopeeSecretText, setShopeeSecretText] = useState("");
+  const [groups, setGroups] = useState<WaGroup[]>([]);
+  const [groupIdText, setGroupIdText] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -314,6 +318,7 @@ export default function SettingsPanel() {
       setAmazonTagText(data.settings.amazonTag ?? "");
       setShopeeAppIdText(data.settings.shopeeAppId ?? "");
       setShopeeSecretText(data.settings.shopeeSecret ?? "");
+      setGroupIdText(data.settings.whatsappGroupId ?? "");
     } catch {
       showToast("Não foi possível carregar as configurações.");
     } finally {
@@ -321,11 +326,25 @@ export default function SettingsPanel() {
     }
   }, [showToast]);
 
+  const loadGroups = useCallback(async () => {
+    try {
+      const res = await fetch("/api/groups");
+      const data = await res.json();
+      setGroups(Array.isArray(data.groups) ? data.groups : []);
+    } catch {
+      /* sem worker conectado ainda */
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(true), 30_000);
+    void loadGroups();
+    const id = setInterval(() => {
+      void load(true);
+      void loadGroups();
+    }, 30_000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, loadGroups]);
 
   useEffect(() => {
     return () => {
@@ -355,6 +374,7 @@ export default function SettingsPanel() {
       setAmazonTagText(data.settings.amazonTag ?? "");
       setShopeeAppIdText(data.settings.shopeeAppId ?? "");
       setShopeeSecretText(data.settings.shopeeSecret ?? "");
+      setGroupIdText(data.settings.whatsappGroupId ?? "");
       setSaveState("saved");
       showToast(toastMsg ?? "Configuração salva — o worker aplica na próxima ação.");
       setTimeout(() => setSaveState("idle"), 2500);
@@ -403,6 +423,17 @@ export default function SettingsPanel() {
         </div>
 
         <div className="flex items-center gap-3">
+          <div
+            className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm ${
+              status?.waConnected
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+                : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300"
+            }`}
+            title={status?.waConnected ? "WhatsApp conectado" : "WhatsApp desconectado"}
+          >
+            <IconWhatsApp className="h-3.5 w-3.5" />
+            {status?.waConnected ? "WhatsApp on" : "WhatsApp off"}
+          </div>
           <div
             className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm ${
               settings.automationRunning
@@ -485,40 +516,90 @@ export default function SettingsPanel() {
       </section>
 
       {/* Grupo de destino */}
-      {status ? (
-        <div className="animate-fade-in mb-6 flex items-center gap-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-4 shadow-sm">
+      <div className="animate-fade-in mb-6 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-4 shadow-sm">
+        <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
             <IconWhatsApp className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Enviando para o grupo
+              Grupo de destino
             </p>
-            {status.waGroupId ? (
-              <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                {status.waGroupName || status.waGroupId}
-                {status.waGroupName ? (
-                  <span className="ml-2 font-mono text-xs font-normal text-zinc-400">{status.waGroupId}</span>
-                ) : null}
-              </p>
-            ) : (
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                Nenhum grupo configurado (WHATSAPP_GROUP_ID vazio no .env)
-              </p>
-            )}
+            <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              {status?.waGroupName || settings.whatsappGroupId || "Nenhum grupo selecionado"}
+              {status?.waGroupName && settings.whatsappGroupId ? (
+                <span className="ml-2 font-mono text-xs font-normal text-zinc-400">{settings.whatsappGroupId}</span>
+              ) : null}
+            </p>
           </div>
           <span
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              status.waConnected
+              status?.waConnected
                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
                 : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${status.waConnected ? "bg-emerald-500" : "bg-zinc-400"}`} />
-            {status.waConnected ? "Conectado" : "Desconectado"}
+            <span className={`h-1.5 w-1.5 rounded-full ${status?.waConnected ? "bg-emerald-500" : "bg-zinc-400"}`} />
+            {status?.waConnected ? "Conectado" : "Desconectado"}
           </span>
         </div>
-      ) : null}
+
+        {/* Seletor de grupo */}
+        <div className="mt-4 space-y-2.5 border-t border-[var(--card-border)] pt-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Trocar grupo</span>
+            <button
+              type="button"
+              onClick={() => void loadGroups()}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--card-border)] px-2.5 py-1 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-900 disabled:opacity-50 dark:hover:text-zinc-100"
+              title="Recarregar lista de grupos do WhatsApp"
+            >
+              <IconRefresh className="h-3.5 w-3.5" />
+              Atualizar lista
+            </button>
+          </div>
+          {groups.length > 0 ? (
+            <select
+              className={inputClass}
+              value={settings.whatsappGroupId}
+              disabled={locked}
+              onChange={(e) => patch("whatsappGroupId", e.target.value)}
+            >
+              <option value="">— selecione um grupo —</option>
+              {settings.whatsappGroupId &&
+              !groups.some((g) => g.id === settings.whatsappGroupId) ? (
+                <option value={settings.whatsappGroupId}>
+                  {status?.waGroupName || settings.whatsappGroupId} (atual)
+                </option>
+              ) : null}
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.subject || g.id}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Lista vazia. O worker precisa estar conectado ao WhatsApp para listar os grupos — clique em Atualizar lista após conectar.
+            </p>
+          )}
+          <input
+            className={inputClass}
+            value={groupIdText}
+            disabled={locked}
+            placeholder="ou cole o ID manualmente: 1203...@g.us"
+            onChange={(e) => setGroupIdText(e.target.value)}
+            onBlur={() => {
+              if (locked) return;
+              const v = groupIdText.trim();
+              if (v !== settings.whatsappGroupId) void save({ whatsappGroupId: v });
+            }}
+          />
+          {locked ? (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Pare a automação para trocar o grupo.</p>
+          ) : null}
+        </div>
+      </div>
 
       {/* Stats */}
       {status ? (

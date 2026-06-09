@@ -1,5 +1,6 @@
 export type AppSettings = {
   automationRunning: boolean;
+  whatsappGroupId: string;
   mlEnabled: boolean;
   amazonEnabled: boolean;
   amazonTag: string;
@@ -22,6 +23,7 @@ export type AppSettings = {
 
 export const SETTINGS_DEFAULTS: AppSettings = {
   automationRunning: false,
+  whatsappGroupId: "",
   mlEnabled: true,
   amazonEnabled: false,
   amazonTag: "",
