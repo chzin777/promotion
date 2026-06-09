@@ -230,6 +230,73 @@ const CTAS: string[] = [
   '🛒 Pega o link:',
 ]
 
+/** Siglas/unidades que ficam em CAIXA ALTA mesmo no title case. */
+const KEEP_UPPER = new Set([
+  'TV', 'LED', 'OLED', 'QLED', 'HD', 'FHD', 'UHD', '4K', '8K', 'HDR', 'USB', 'HDMI',
+  'SSD', 'HDD', 'RAM', 'CPU', 'GPU', 'PC', 'NB', 'PS4', 'PS5', 'XBOX', 'RGB', 'LCD',
+  'GB', 'TB', 'MB', 'KG', 'ML', 'CM', 'MM', 'W', 'V', 'A', 'AH', 'MAH', 'WIFI', 'BT',
+  'NFC', 'GPS', 'SUV', 'ABS', 'EVA', 'PVC', 'LGBT', 'UV', 'FPS', 'IP',
+  'DPI', 'RPM', 'NM', 'HZ', 'KHZ', 'MHZ', 'GHZ', 'PSI', 'LM', 'ANSI', 'IPX', 'BPM',
+])
+
+/** Frases de marketing que so poluem o titulo. Removidas em qualquer posicao. */
+const NOISE_RE = new RegExp(
+  '\\b(' +
+    'frete\\s*gr[aá]tis|envio\\s*(imediato|r[aá]pido|gr[aá]tis)|pronta\\s*entrega|entrega\\s*r[aá]pida|' +
+    'super\\s*promo[cç][aã]o|promo[cç][aã]o|promo|imperd[ií]vel|oferta\\s*rel[aâ]mpago|oferta|' +
+    'melhor\\s*pre[cç]o|menor\\s*pre[cç]o|[aà]\\s*vista|\\d+\\s*x\\s*sem\\s*juros|sem\\s*juros|' +
+    'nota\\s*fiscal|nf-?e?|com\\s*garantia|garantia|100%|barato|liquida[cç][aã]o|black\\s*friday' +
+  ')\\b',
+  'gi',
+)
+
+/**
+ * Limpa o titulo cru do marketplace pra ficar legivel:
+ * tira ruido de marketing, normaliza CAIXA ALTA, colapsa espaco/pontuacao
+ * repetida, remove palavras duplicadas seguidas e corta no limite mantendo
+ * a palavra inteira. Conservador: nao reescreve, so limpa.
+ */
+export function normalizeTitle(raw: string, maxLen = 80): string {
+  let s = raw.normalize('NFC').trim()
+  // 1. tira emoji e simbolos soltos das bordas/meio (mantem letras/numeros/pontuacao util)
+  s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, ' ')
+  // 2. remove ruido de marketing
+  s = s.replace(NOISE_RE, ' ')
+  // 3. colapsa separadores repetidos ( | / - , ) e espacos
+  s = s.replace(/\s*[|/]\s*/g, ' - ').replace(/[-–—]{2,}/g, '-')
+  s = s.replace(/\s{2,}/g, ' ').replace(/(\s*-\s*){2,}/g, ' - ').trim()
+  s = s.replace(/^[\s\-,.|/]+|[\s\-,.|/]+$/g, '').trim()
+  // 4. CAIXA ALTA -> Title Case (mantem siglas e tokens com numero)
+  s = s
+    .split(' ')
+    .map((w) => {
+      const bare = w.replace(/[^\p{L}\p{N}]/gu, '')
+      if (!bare) return w
+      if (KEEP_UPPER.has(bare.toUpperCase())) return w.toUpperCase()
+      if (/\d/.test(w)) return w // ex "1299,90", "55W", "4k"
+      if (w === w.toUpperCase() && bare.length > 2) {
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+      }
+      return w
+    })
+    .join(' ')
+  // 5. remove palavras duplicadas seguidas (case-insensitive): "Mouse Mouse" -> "Mouse"
+  const words = s.split(' ')
+  const dedup: string[] = []
+  for (const w of words) {
+    if (dedup.length && dedup[dedup.length - 1].toLowerCase() === w.toLowerCase()) continue
+    dedup.push(w)
+  }
+  s = dedup.join(' ')
+  // 6. corta no limite sem quebrar palavra
+  if (s.length > maxLen) {
+    const cut = s.slice(0, maxLen)
+    const sp = cut.lastIndexOf(' ')
+    s = (sp > maxLen * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s\-,.|/]+$/, '') + '…'
+  }
+  return s.trim()
+}
+
 /** Nome da loja a partir do link (pra nao citar loja errada). */
 function storeName(link: string): string {
   if (/amazon\./i.test(link)) return 'Amazon'
@@ -245,7 +312,7 @@ export function formatMessage(it: Item): string {
   const cta = CTAS[Math.floor(Math.random() * CTAS.length)]
   const lines: string[] = []
   if (it.title?.trim()) {
-    lines.push(`📦 ${it.title.trim()}`)
+    lines.push(`📦 ${normalizeTitle(it.title)}`)
   } else {
     const loja = storeName(it.link)
     if (loja) lines.push(`🛍️ Oferta na ${loja}`)
