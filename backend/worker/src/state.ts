@@ -134,6 +134,52 @@ const SIG_STOP = new Set([
 ])
 
 /**
+ * Temas super-representados (saturam a fila). Cada tema tem um teto diario: passou
+ * do teto, os proximos do mesmo tema sao tratados como "ja enviados" (pulados).
+ * Diferente da titleSignature, agrupa titulos variados sob o mesmo guarda-chuva
+ * (ex: "kit torcedor", "camiseta brasil", "babylook brasil" -> tema "copa").
+ */
+// Mesmo "tipo" de produto (titleSignature) nao se repete por esta janela de dias.
+// Antes era so "1 por dia" -> bestsellers (meia calca, etc) voltavam todo dia.
+const SIG_COOLDOWN_DAYS = 5
+
+/** Data 'YYYY-MM-DD' esta dentro dos ultimos `days` dias (hoje incluso)? */
+function withinCooldown(dateStr: string, days: number): boolean {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  if (!y || !m || !d) return false
+  const then = new Date(y, m - 1, d).getTime()
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const diff = Math.floor((today - then) / 86_400_000)
+  return diff >= 0 && diff < days
+}
+
+const THEME_RULES: { re: RegExp; key: string; maxPerDay: number }[] = [
+  {
+    re: /copa do mundo|copa 2026|torcedor|torcida|\bfifa\b|sele[çc][ãa]o brasil|(camis|camiseta|moletom|blusa|babylook|babytee|regata)\w*.*brasil|brasil.*(camis|camiseta|moletom|blusa|babylook|regata)/i,
+    key: 'copa',
+    maxPerDay: 2,
+  },
+]
+
+/** Tema saturado do titulo, ou '' se nenhum. */
+export function themeOf(title?: string | null): string {
+  if (!title) return ''
+  for (const r of THEME_RULES) if (r.re.test(title)) return r.key
+  return ''
+}
+
+function themeMax(key: string): number {
+  return THEME_RULES.find((r) => r.key === key)?.maxPerDay ?? Infinity
+}
+
+/** Quantos itens deste tema ja sairam hoje. */
+function themeCount(state: State, key: string): number {
+  const pre = `${todayKey()}|tema:${key}|`
+  return state.sentSignatures.filter((e) => e.startsWith(pre)).length
+}
+
+/**
  * Assinatura de "tipo" do produto: 3 primeiras palavras significativas do titulo
  * (sem acento, sem stopword/numero). Ex: "Meia-Calca Termica Feminina..." ->
  * "meia calca termica". Serve pra nao postar 2 produtos quase-iguais no mesmo dia.
@@ -155,8 +201,18 @@ export function wasSent(it: Sendable, state: State): boolean {
   const lk = linkKey(it.link)
   const pk = productKey(it.link, it.productUrl)
   if (new Set(state.sent).has(lk) || new Set(state.sentProducts).has(pk)) return true
+  // mesmo "tipo" (assinatura) ja saiu nos ultimos SIG_COOLDOWN_DAYS dias -> pula.
   const sig = titleSignature(it.title)
-  if (sig && state.sentSignatures.includes(`${todayKey()}|${sig}`)) return true
+  if (sig) {
+    for (const e of state.sentSignatures) {
+      const i = e.indexOf('|')
+      if (i < 0) continue
+      if (e.slice(i + 1) === sig && withinCooldown(e.slice(0, i), SIG_COOLDOWN_DAYS)) return true
+    }
+  }
+  // teto diario por tema (ex: copa/torcedor): passou do limite, pula.
+  const th = themeOf(it.title)
+  if (th && themeCount(state, th) >= themeMax(th)) return true
   return false
 }
 
@@ -167,12 +223,18 @@ export function recordSent(it: Sendable, state: State): void {
   if (!state.sent.includes(lk)) state.sent.push(lk)
   if (!state.sentProducts.includes(pk)) state.sentProducts.push(pk)
   if (!state.seenProducts.includes(pk)) state.seenProducts.push(pk)
+  const today = todayKey()
   const sig = titleSignature(it.title)
+  const th = themeOf(it.title)
+  // limpa entradas fora da janela de cooldown (nao cresce sem limite)
+  state.sentSignatures = state.sentSignatures.filter((e) => {
+    const i = e.indexOf('|')
+    return i > 0 && withinCooldown(e.slice(0, i), SIG_COOLDOWN_DAYS)
+  })
   if (sig) {
-    const today = todayKey()
-    // mantem so as assinaturas de hoje (limpa dias antigos, nao cresce sem limite)
-    state.sentSignatures = state.sentSignatures.filter((e) => e.startsWith(`${today}|`))
     const key = `${today}|${sig}`
     if (!state.sentSignatures.includes(key)) state.sentSignatures.push(key)
   }
+  // 1 marcador por envio do tema (chave unica por link) -> permite contar quantos sairam hoje.
+  if (th) state.sentSignatures.push(`${today}|tema:${th}|${lk}`)
 }

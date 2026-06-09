@@ -3,7 +3,7 @@ import { discoverProductUrls, productId } from './discovery.js'
 import { buildPromos, type Promo } from './affiliate.js'
 import { discoverAmazonUrls, buildAmazonPromos, asin } from './amazon.js'
 import { discoverShopeePromos, shopeeId } from './shopee.js'
-import { readState, writeState, wasSent } from './state.js'
+import { readState, writeState, wasSent, themeOf } from './state.js'
 import { appendQueue } from './queue.js'
 import { todayStr, isBasePriceGiftCard, type Item } from './products.js'
 import { readSettings, getAmazonTag } from './settings.js'
@@ -12,13 +12,26 @@ import { readSettings, getAmazonTag } from './settings.js'
 // Limita quantos entram por coleta pra nao floodar a fila com a mesma coisa.
 const SATURATED = /\bmeia(s)?\b|soquete/i
 
-/** Mantem no maximo `max` itens "saturados" (ex: meias) por coleta. */
-function capSaturated(items: Item[], max = 1): Item[] {
-  let n = 0
+/**
+ * Limita por coleta os grupos saturados: meias (1) e cada tema do state (copa: 2).
+ * Evita encher a fila com o mesmo assunto numa unica descoberta.
+ */
+function capSaturated(items: Item[]): Item[] {
+  const COPA_MAX = 2
+  let meias = 0
+  const themeCount = new Map<string, number>()
   return items.filter((it) => {
-    if (SATURATED.test(it.title ?? '')) {
-      if (n >= max) return false
-      n += 1
+    const title = it.title ?? ''
+    if (SATURATED.test(title)) {
+      if (meias >= 1) return false
+      meias += 1
+      return true
+    }
+    const th = themeOf(title)
+    if (th) {
+      const n = themeCount.get(th) ?? 0
+      if (n >= COPA_MAX) return false
+      themeCount.set(th, n + 1)
     }
     return true
   })
