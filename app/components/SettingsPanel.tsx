@@ -8,6 +8,7 @@ type Status = {
   remainingTotal: number;
   remainingMl: number;
   remainingAmazon: number;
+  remainingShopee: number;
   sentCount: number;
   amazonTagConfigured: boolean;
   waGroupId: string;
@@ -30,6 +31,15 @@ function IconRefresh({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M21 12a9 9 0 1 1-2.64-6.36" strokeLinecap="round" />
       <path d="M21 3v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconKey({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="m10.7 12.3 9.3-9.3M16 7l3 3M14 9l2 2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -84,34 +94,41 @@ function Field({
 const inputClass =
   "w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-sm transition-colors placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-100";
 
+type StatAccent = "emerald" | "blue" | "amber" | "ml" | "amazon" | "shopee";
+
+const STAT_ACCENTS: Record<StatAccent, { gradient: string; dot: string }> = {
+  emerald: { gradient: "from-emerald-500/10 to-transparent", dot: "bg-emerald-500" },
+  blue: { gradient: "from-blue-500/10 to-transparent", dot: "bg-blue-500" },
+  amber: { gradient: "from-amber-500/10 to-transparent", dot: "bg-amber-500" },
+  ml: { gradient: "from-[#FFE600]/25 to-transparent", dot: "bg-[#FFE600]" },
+  amazon: { gradient: "from-[#FF9900]/25 to-transparent", dot: "bg-[#FF9900]" },
+  shopee: { gradient: "from-[#EE4D2D]/25 to-transparent", dot: "bg-[#EE4D2D]" },
+};
+
 function StatCard({
   label,
   value,
   sub,
-  accent,
+  accent = "blue",
 }: {
   label: string;
   value: string | number;
   sub?: string;
-  accent?: "emerald" | "blue" | "amber" | "ml" | "amazon";
+  accent?: StatAccent;
 }) {
-  const ring =
-    accent === "emerald"
-      ? "from-emerald-500/10 to-transparent"
-      : accent === "blue"
-        ? "from-blue-500/10 to-transparent"
-        : accent === "ml"
-          ? "from-[#FFE600]/25 to-transparent"
-          : accent === "amazon"
-            ? "from-[#FF9900]/25 to-transparent"
-            : "from-amber-500/10 to-transparent";
+  const a = STAT_ACCENTS[accent];
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm`}>
-      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${ring}`} />
-      <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">{value}</p>
-      {sub ? <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{sub}</p> : null}
+    <div className="group relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${a.gradient}`} />
+      <div className="relative flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${a.dot}`} />
+        <p className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{label}</p>
+      </div>
+      <p className="relative mt-2 text-3xl font-semibold tracking-tight text-zinc-900 tabular-nums dark:text-zinc-50">
+        {value}
+      </p>
+      {sub ? <p className="relative mt-1 text-xs text-zinc-500 dark:text-zinc-400">{sub}</p> : null}
     </div>
   );
 }
@@ -220,11 +237,44 @@ function PlatformCard({
   );
 }
 
+function CredGroup({
+  brand,
+  name,
+  configured,
+  children,
+}: {
+  brand: "amazon" | "shopee";
+  name: string;
+  configured: boolean;
+  children: React.ReactNode;
+}) {
+  const badge = brand === "shopee" ? "bg-[#EE4D2D] text-white" : "bg-[#FF9900] text-white";
+  return (
+    <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/30">
+      <div className="mb-4 flex items-center gap-2.5">
+        <span className={`rounded-lg px-2.5 py-1 text-xs font-bold tracking-wide ${badge}`}>{name}</span>
+        <span
+          className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            configured
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${configured ? "bg-emerald-500" : "bg-amber-500"}`} />
+          {configured ? "Configurado" : "Pendente"}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function Skeleton() {
   return (
     <div className="mx-auto max-w-4xl animate-pulse space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <div className="h-16 rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="h-28 rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
         <div className="h-28 rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
         <div className="h-28 rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
         <div className="h-28 rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
@@ -243,6 +293,8 @@ export default function SettingsPanel() {
   const [toast, setToast] = useState<string | null>(null);
   const [poolText, setPoolText] = useState("11, 7, 15");
   const [amazonTagText, setAmazonTagText] = useState("");
+  const [shopeeAppIdText, setShopeeAppIdText] = useState("");
+  const [shopeeSecretText, setShopeeSecretText] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: string) => {
@@ -260,6 +312,8 @@ export default function SettingsPanel() {
       setStatus(data.status);
       setPoolText(data.settings.sendIntervalPool.join(", "));
       setAmazonTagText(data.settings.amazonTag ?? "");
+      setShopeeAppIdText(data.settings.shopeeAppId ?? "");
+      setShopeeSecretText(data.settings.shopeeSecret ?? "");
     } catch {
       showToast("Não foi possível carregar as configurações.");
     } finally {
@@ -299,6 +353,8 @@ export default function SettingsPanel() {
       setStatus(data.status);
       setPoolText(data.settings.sendIntervalPool.join(", "));
       setAmazonTagText(data.settings.amazonTag ?? "");
+      setShopeeAppIdText(data.settings.shopeeAppId ?? "");
+      setShopeeSecretText(data.settings.shopeeSecret ?? "");
       setSaveState("saved");
       showToast(toastMsg ?? "Configuração salva — o worker aplica na próxima ação.");
       setTimeout(() => setSaveState("idle"), 2500);
@@ -466,7 +522,7 @@ export default function SettingsPanel() {
 
       {/* Stats */}
       {status ? (
-        <div className="animate-fade-in mb-8 grid gap-4 sm:grid-cols-3" style={{ animationDelay: "50ms" }}>
+        <div className="animate-fade-in mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: "50ms" }}>
           <StatCard
             label="Links restantes"
             value={status.remainingTotal}
@@ -476,14 +532,20 @@ export default function SettingsPanel() {
           <StatCard
             label="Mercado Livre"
             value={status.remainingMl}
-            sub="links ML na fila"
+            sub="na fila"
             accent="ml"
           />
           <StatCard
             label="Amazon"
             value={status.remainingAmazon}
-            sub="links Amazon na fila"
+            sub="na fila"
             accent="amazon"
+          />
+          <StatCard
+            label="Shopee"
+            value={status.remainingShopee}
+            sub="na fila"
+            accent="shopee"
           />
         </div>
       ) : null}
@@ -505,7 +567,7 @@ export default function SettingsPanel() {
               Ative ou pause cada loja independentemente.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <PlatformCard
               name="ML"
               brand="ml"
@@ -522,7 +584,7 @@ export default function SettingsPanel() {
               description="Busca produtos e monta links com sua tag de afiliado."
               warning={
                 settings.amazonEnabled && !amazonTagText.trim()
-                  ? "Informe sua tag de afiliado abaixo para gerar os links."
+                  ? "Informe sua tag de afiliado em Credenciais."
                   : undefined
               }
               disabled={locked}
@@ -533,26 +595,83 @@ export default function SettingsPanel() {
               enabled={settings.shopeeEnabled}
               onChange={(v) => patch("shopeeEnabled", v)}
               description="Descobre ofertas e pega o link de afiliado via Shopee Affiliate API."
-              warning="Requer SHOPEE_APP_ID e SHOPEE_APP_SECRET no .env do worker."
+              warning={
+                settings.shopeeEnabled &&
+                !(shopeeAppIdText.trim() && shopeeSecretText.trim())
+                  ? "Informe AppId e Secret em Credenciais."
+                  : undefined
+              }
               disabled={locked}
             />
           </div>
-          <Field
-            label="Tag de afiliado Amazon"
-            hint="Vai no parâmetro ?tag= dos links. Ex: sualoja-20"
+        </div>
+
+        {/* Credenciais */}
+        <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
+          <SectionCard
+            icon={<IconKey className="h-5 w-5 text-zinc-600 dark:text-zinc-300" />}
+            title="Credenciais de afiliado"
+            description="Chaves usadas para gerar os links. Ficam salvas no servidor — o Secret nunca aparece em logs."
           >
-            <input
-              className={inputClass}
-              value={amazonTagText}
-              disabled={locked}
-              placeholder="xxxxx-20"
-              onChange={(e) => setAmazonTagText(e.target.value)}
-              onBlur={() => {
-                if (locked) return;
-                void save({ amazonTag: amazonTagText.trim() });
-              }}
-            />
-          </Field>
+            <CredGroup
+              brand="amazon"
+              name="Amazon"
+              configured={Boolean(amazonTagText.trim())}
+            >
+              <Field
+                label="Tag de afiliado"
+                hint="Vai no parâmetro ?tag= dos links. Ex: sualoja-20"
+              >
+                <input
+                  className={inputClass}
+                  value={amazonTagText}
+                  disabled={locked}
+                  placeholder="xxxxx-20"
+                  onChange={(e) => setAmazonTagText(e.target.value)}
+                  onBlur={() => {
+                    if (locked) return;
+                    void save({ amazonTag: amazonTagText.trim() });
+                  }}
+                />
+              </Field>
+            </CredGroup>
+
+            <CredGroup
+              brand="shopee"
+              name="Shopee"
+              configured={Boolean(shopeeAppIdText.trim() && shopeeSecretText.trim())}
+            >
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="AppId da API" hint="App ID da Shopee Affiliate Open API.">
+                  <input
+                    className={inputClass}
+                    value={shopeeAppIdText}
+                    disabled={locked}
+                    placeholder="ex: 18300000000"
+                    onChange={(e) => setShopeeAppIdText(e.target.value)}
+                    onBlur={() => {
+                      if (locked) return;
+                      void save({ shopeeAppId: shopeeAppIdText.trim() });
+                    }}
+                  />
+                </Field>
+                <Field label="Secret da API" hint="App Secret. Guardado no servidor.">
+                  <input
+                    className={inputClass}
+                    type="password"
+                    value={shopeeSecretText}
+                    disabled={locked}
+                    placeholder="••••••••"
+                    onChange={(e) => setShopeeSecretText(e.target.value)}
+                    onBlur={() => {
+                      if (locked) return;
+                      void save({ shopeeSecret: shopeeSecretText.trim() });
+                    }}
+                  />
+                </Field>
+              </div>
+            </CredGroup>
+          </SectionCard>
         </div>
 
         {/* WhatsApp */}

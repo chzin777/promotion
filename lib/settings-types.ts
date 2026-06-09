@@ -4,6 +4,8 @@ export type AppSettings = {
   amazonEnabled: boolean;
   amazonTag: string;
   shopeeEnabled: boolean;
+  shopeeAppId: string;
+  shopeeSecret: string;
   shopeeFeedCount: number;
   sendIntervalMinutes: number;
   sendIntervalPool: number[];
@@ -24,6 +26,8 @@ export const SETTINGS_DEFAULTS: AppSettings = {
   amazonEnabled: false,
   amazonTag: "",
   shopeeEnabled: false,
+  shopeeAppId: "",
+  shopeeSecret: "",
   shopeeFeedCount: 10,
   sendIntervalMinutes: 15,
   sendIntervalPool: [11, 7, 15],

@@ -1,30 +1,42 @@
 import crypto from 'node:crypto'
 import axios from 'axios'
 import { config } from './config.js'
+import { readSettings } from './settings.js'
 import type { Promo } from './affiliate.js'
 
 const ENDPOINT = 'https://open-api.affiliate.shopee.com.br/graphql'
+
+type Creds = { appId: string; secret: string }
+
+/** Credenciais do painel (settings.json) com fallback pro .env. */
+function shopeeCreds(): Creds {
+  const s = readSettings()
+  return {
+    appId: s.shopeeAppId || config.shopeeAppId,
+    secret: s.shopeeSecret || config.shopeeSecret,
+  }
+}
 
 /**
  * Assina a requisicao da Shopee Affiliate Open API.
  * factor = AppId + Timestamp + Payload + Secret  ->  SHA256 hex.
  * Header: Authorization: SHA256 Credential=<appId>, Timestamp=<ts>, Signature=<sign>
  */
-function authHeader(payload: string): { Authorization: string; 'Content-Type': string } {
+function authHeader(payload: string, creds: Creds): { Authorization: string; 'Content-Type': string } {
   const ts = Math.floor(Date.now() / 1000)
-  const sign = crypto.createHash('sha256').update(config.shopeeAppId + ts + payload + config.shopeeSecret).digest('hex')
+  const sign = crypto.createHash('sha256').update(creds.appId + ts + payload + creds.secret).digest('hex')
   return {
-    Authorization: `SHA256 Credential=${config.shopeeAppId}, Timestamp=${ts}, Signature=${sign}`,
+    Authorization: `SHA256 Credential=${creds.appId}, Timestamp=${ts}, Signature=${sign}`,
     'Content-Type': 'application/json',
   }
 }
 
 type GqlResp<T> = { data?: T; errors?: { message: string }[] }
 
-async function gql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+async function gql<T>(query: string, variables: Record<string, unknown> = {}, creds: Creds): Promise<T> {
   const payload = JSON.stringify({ query, variables })
   const { data } = await axios.post<GqlResp<T>>(ENDPOINT, payload, {
-    headers: authHeader(payload),
+    headers: authHeader(payload, creds),
     timeout: 20_000,
   })
   if (data.errors?.length) throw new Error('Shopee API: ' + data.errors.map((e) => e.message).join('; '))
@@ -85,8 +97,9 @@ export function shopeeId(url: string): string {
  * itemId e respeita o exclude (ids ja vistos/enviados).
  */
 export async function discoverShopeePromos(limit: number, exclude: Set<string> = new Set()): Promise<Promo[]> {
-  if (!config.shopeeAppId || !config.shopeeSecret) {
-    console.warn('[shopee] SHOPEE_APP_ID/SECRET vazios — pulando.')
+  const creds = shopeeCreds()
+  if (!creds.appId || !creds.secret) {
+    console.warn('[shopee] AppId/Secret vazios (painel e .env) — pulando.')
     return []
   }
   const out: Promo[] = []
@@ -95,7 +108,7 @@ export async function discoverShopeePromos(limit: number, exclude: Set<string> =
     if (out.length >= limit) break
     let data: ProductOfferV2
     try {
-      data = await gql<ProductOfferV2>(OFFER_QUERY, { limit: 30, page: 1, keyword, sortType: 2 })
+      data = await gql<ProductOfferV2>(OFFER_QUERY, { limit: 30, page: 1, keyword, sortType: 2 }, creds)
     } catch (e) {
       console.warn(`[shopee] busca "${keyword || 'geral'}" falhou:`, (e as Error).message)
       continue

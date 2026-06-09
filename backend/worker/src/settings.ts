@@ -9,6 +9,8 @@ export type AppSettings = {
   amazonEnabled: boolean
   amazonTag: string
   shopeeEnabled: boolean
+  shopeeAppId: string
+  shopeeSecret: string
   shopeeFeedCount: number
   sendIntervalMinutes: number
   sendIntervalPool: number[]
@@ -42,6 +44,8 @@ function defaultsFromEnv(): AppSettings {
     amazonEnabled: Boolean(config.amazonTag),
     amazonTag: config.amazonTag,
     shopeeEnabled: Boolean(config.shopeeAppId && config.shopeeSecret),
+    shopeeAppId: config.shopeeAppId,
+    shopeeSecret: config.shopeeSecret,
     shopeeFeedCount: config.shopeeFeedCount,
     sendIntervalMinutes: config.intervalMin,
     sendIntervalPool: config.intervalPoolMin.length ? config.intervalPoolMin : [config.intervalMin],
@@ -66,6 +70,8 @@ export function normalizeSettings(raw: Partial<AppSettings> | null | undefined):
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),
     shopeeEnabled: s.shopeeEnabled === true,
+    shopeeAppId: String(s.shopeeAppId ?? d.shopeeAppId).trim(),
+    shopeeSecret: String(s.shopeeSecret ?? d.shopeeSecret).trim(),
     shopeeFeedCount: clamp(Number(s.shopeeFeedCount ?? d.shopeeFeedCount), 0, 100),
     sendIntervalMinutes: clamp(Number(s.sendIntervalMinutes ?? d.sendIntervalMinutes), 1, 1440),
     sendIntervalPool: sanitizePool(s.sendIntervalPool),

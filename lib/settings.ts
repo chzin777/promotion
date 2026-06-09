@@ -55,6 +55,8 @@ export function normalizeSettings(
     amazonEnabled: s.amazonEnabled === true,
     amazonTag: String(s.amazonTag ?? d.amazonTag).trim(),
     shopeeEnabled: s.shopeeEnabled === true,
+    shopeeAppId: String(s.shopeeAppId ?? d.shopeeAppId).trim(),
+    shopeeSecret: String(s.shopeeSecret ?? d.shopeeSecret).trim(),
     shopeeFeedCount: clamp(Number(s.shopeeFeedCount ?? d.shopeeFeedCount), 0, 100),
     sendIntervalMinutes: clamp(
       Number(s.sendIntervalMinutes ?? d.sendIntervalMinutes),

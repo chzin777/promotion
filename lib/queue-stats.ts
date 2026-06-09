@@ -17,6 +17,7 @@ export type QueueStats = {
   remainingTotal: number;
   remainingMl: number;
   remainingAmazon: number;
+  remainingShopee: number;
   sentCount: number;
   amazonTagConfigured: boolean;
   waGroupId: string;
@@ -112,6 +113,10 @@ function isMlLink(link: string, productUrl?: string | null): boolean {
 
 function isAmazonLink(link: string, productUrl?: string | null): boolean {
   return /amazon\.com/i.test(`${link} ${productUrl ?? ""}`);
+}
+
+function isShopeeLink(link: string, productUrl?: string | null): boolean {
+  return /shopee\.com|s\.shopee\./i.test(`${link} ${productUrl ?? ""}`);
 }
 
 function loadXlsx(file: string): Item[] {
@@ -210,9 +215,11 @@ export function readQueueStats(): QueueStats {
 
   let remainingMl = 0;
   let remainingAmazon = 0;
+  let remainingShopee = 0;
   for (const it of pending) {
     if (isMlLink(it.link, it.productUrl)) remainingMl++;
     else if (isAmazonLink(it.link, it.productUrl)) remainingAmazon++;
+    else if (isShopeeLink(it.link, it.productUrl)) remainingShopee++;
   }
 
   const amazonTagConfigured = Boolean(readSettingsFile().amazonTag.trim());
@@ -222,6 +229,7 @@ export function readQueueStats(): QueueStats {
     remainingTotal: pending.length,
     remainingMl,
     remainingAmazon,
+    remainingShopee,
     sentCount: state.sent.length,
     amazonTagConfigured,
     waGroupId: readGroupIdFromEnv(),
