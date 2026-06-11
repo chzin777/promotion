@@ -146,29 +146,44 @@ const DETAILS_JS = `(() => {
     || q('span.a-price.a-text-price[data-a-strike="true"] .a-offscreen')
     || q('.a-text-price .a-offscreen');
   const oldPrice = oldEl ? oldEl.textContent.trim() : '';
-  return { title, img, price, oldPrice };
+  // trilha de categoria (breadcrumb) — usada pra filtrar filme/livro/cd
+  const dept = Array.from(document.querySelectorAll('#wayfinding-breadcrumbs_feature_div a'))
+    .map((a) => a.textContent.trim()).join(' > ');
+  return { title, img, price, oldPrice, dept };
 })()`
 
 function normPrice(s: string): string {
   return (s || '').trim().replace(/^R\$\s*/, 'R$ ') // padroniza "R$ 199,90"
 }
 
-async function grabDetails(page: Page, url: string): Promise<{ title: string; image: string; price: string; oldPrice: string }> {
+async function grabDetails(page: Page, url: string): Promise<{ title: string; image: string; price: string; oldPrice: string; dept: string }> {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await page.waitForSelector('#productTitle, .a-price .a-offscreen', { timeout: 12_000 }).catch(() => {})
     await new Promise((r) => setTimeout(r, 400))
-    const d = (await page.evaluate(DETAILS_JS)) as { title: string; img: string; price: string; oldPrice: string }
+    const d = (await page.evaluate(DETAILS_JS)) as { title: string; img: string; price: string; oldPrice: string; dept: string }
     return {
       title: (d.title || '').trim(),
       image: (d.img || '').trim(),
       price: normPrice(d.price),
       oldPrice: normPrice(d.oldPrice),
+      dept: (d.dept || '').trim(),
     }
   } catch (e) {
     console.warn('[amazon] detalhe falhou em', url, '-', (e as Error).message)
-    return { title: '', image: '', price: '', oldPrice: '' }
+    return { title: '', image: '', price: '', oldPrice: '', dept: '' }
   }
+}
+
+// categorias/formatos que ninguem compra no grupo — filme, livro, musica
+const BLOCK_DEPT = /filme|s[ée]ries|livro|música|musica|cd e vinil|games|e-?book|kindle/i
+const BLOCK_TITLE = /\b(blu-?ray|dvd|4k\s*uhd|4k\s*ultra\s*hd|\[blu-ray\]|box set|vinil|lp)\b/i
+
+/** True se produto for filme/livro/cd — categorias que nao vendem no grupo. */
+function isBlocked(title: string, dept: string): boolean {
+  if (dept && BLOCK_DEPT.test(dept)) return true
+  if (BLOCK_TITLE.test(title)) return true
+  return false
 }
 
 /**
@@ -185,7 +200,11 @@ export async function buildAmazonPromos(productUrls: string[]): Promise<Promo[]>
       console.warn('[amazon] sem ASIN/tag, pula:', productUrl)
       continue
     }
-    const details = await grabDetails(page, productUrl)
+    const { dept, ...details } = await grabDetails(page, productUrl)
+    if (isBlocked(details.title, dept)) {
+      console.log(`[amazon pula] filme/livro/cd: ${details.title || productUrl} (${dept})`)
+      continue
+    }
     out.push({ productUrl, link, ...details })
     console.log(`[amazon ok] ${details.title || productUrl} ${details.price} -> ${link}`)
     await new Promise((r) => setTimeout(r, 1000))
